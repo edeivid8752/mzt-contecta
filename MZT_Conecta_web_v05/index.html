@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#062647">
+  <meta name="description" content="MZT Conecta: un lugar para conocer lo que pasa en Mazatlán. Noticias y reportes comunitarios en un mapa.">
+  <title>MZT Conecta · Muro ciudadano</title>
+  <link rel="icon" type="image/png" href="./assets/isotipo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="./src/styles.css">
+  <script type="module" src="./src/main.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Navegación principal">
+      <div class="brand">
+        <div class="brand-icon"><img src="./assets/isotipo.png" alt="Isotipo MZT Conecta"></div>
+        <div class="brand-copy"><strong>MZT<span>Conecta</span></strong><small>MAZATLÁN, SINALOA</small></div>
+      </div>
+      <div class="sidebar-rule"></div>
+      <p class="nav-heading">TU COMUNIDAD</p>
+      <nav class="side-nav" id="side-nav">
+        <button type="button" class="side-link active" data-view="explorar"><span class="nav-ico">▦</span><span>Inicio · Muro</span><span class="nav-tail">›</span></button>
+        <button type="button" class="side-link" data-view="mis-reportes"><span class="nav-ico">▤</span><span>Mis reportes</span></button>
+        <button type="button" class="side-link" data-view="moderacion"><span class="nav-ico">◈</span><span>Moderación</span><span class="mod-count" id="mod-count" hidden>0</span></button>
+      </nav>
+      <p class="nav-heading nav-heading-lower">PARTICIPA</p>
+      <button type="button" class="side-link subtle" id="sidebar-report"><span class="nav-ico">＋</span><span>Crear un reporte</span></button>
+      <div class="sidebar-grow"></div>
+      <div class="community-note">
+        <span class="note-sun">✳</span>
+        <strong>Una ciudad más conectada empieza contigo.</strong>
+        <p>Infórmate, comparte y ayuda a tu comunidad.</p>
+      </div>
+      <div class="sidebar-bottom"><span class="mini-live"></span> PLATAFORMA EN DEMOSTRACIÓN <span>V 0.5</span></div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div class="topbar-location"><span class="location-dot">✦</span><span>México <i>/</i> Sinaloa <i>/</i> <strong>Mazatlán</strong></span></div>
+        <div class="topbar-actions">
+          <span class="demo-pill"><span></span> DATOS DE EJEMPLO</span>
+          <label for="role-select" class="role-label">Explorar como</label>
+          <select id="role-select" aria-label="Seleccionar rol de prueba">
+            <option value="visitante">Visitante</option>
+            <option value="ciudadano">Ciudadano (demo)</option>
+            <option value="lector">Lector (demo)</option>
+            <option value="editor">Editor (demo)</option>
+          </select>
+        </div>
+      </header>
+
+      <div class="main-body">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow"><span class="eyebrow-line"></span> EL MURO DE NUESTRA CIUDAD</p>
+            <h1>Lo que pasa en <em>Mazatlán.</em></h1>
+            <p class="heading-subtitle">Noticias, avisos y reportes de nuestra comunidad en un solo lugar.</p>
+          </div>
+        </div>
+
+        <!-- El mapa es una vista principal en la cabecera del muro. -->
+        <section class="map-panel map-hero" id="map-panel" aria-label="Mapa interactivo de Mazatlán">
+          <div id="map" class="map-canvas"></div>
+          <div class="map-top-banner"><span class="map-banner-icon">⌖</span><span><strong>Mazatlán en el mapa</strong><small>Explora lo que ocurre cerca de ti</small></span><span class="map-badge">DEMO</span></div>
+          <div class="map-legend" aria-label="Leyenda del mapa"><div><span class="type-symbol symbol-news"></span>Noticias</div><div><span class="type-symbol symbol-citizen"></span>Ciudadanos</div><div><span class="type-symbol symbol-infrastructure"></span>Infraestructura</div></div>
+          <div class="map-fallback" id="map-fallback" hidden><span>⌖</span><strong>El mapa requiere conexión a Internet</strong><small>El muro de publicaciones sigue disponible.</small></div>
+        </section>
+
+        <div class="social-layout">
+          <section class="feed-panel" aria-labelledby="feed-title">
+            <div class="compose-strip">
+              <span class="compose-avatar"><img src="./assets/isotipo.png" alt=""></span>
+              <button id="composer-report" type="button" class="compose-prompt">¿Qué está pasando en tu colonia?</button>
+              <button id="composer-create" type="button" class="compose-button">＋ Publicar reporte</button>
+            </div>
+            <div class="feed-head">
+              <div class="feed-heading-row"><div><p class="mini-eyebrow">PUBLICACIONES DE LA COMUNIDAD</p><h2 id="feed-title">El muro de Mazatlán</h2></div><span id="result-count" class="result-count">0</span></div>
+              <div class="feed-controls">
+                <div class="date-switcher">
+                  <button type="button" id="previous-day" aria-label="Día anterior">‹</button>
+                  <label class="date-middle" for="selected-date"><span class="calendar-icon">▦</span><span id="date-caption">Hoy</span><input id="selected-date" type="date" aria-label="Elegir fecha"></label>
+                  <button type="button" id="next-day" aria-label="Día siguiente">›</button>
+                </div>
+                <div class="search-wrap"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg><input id="search-input" type="search" placeholder="Buscar publicaciones..." autocomplete="off" aria-label="Buscar noticias y reportes"></div>
+              </div>
+              <div class="filter-heading">EXPLORAR POR CATEGORÍA</div>
+              <div class="filter-row" id="filter-row">
+                <button type="button" class="filter-chip is-on" data-filter="news"><span class="type-symbol symbol-news"></span>Noticias</button>
+                <button type="button" class="filter-chip is-on" data-filter="citizen"><span class="type-symbol symbol-citizen"></span>Comunidad</button>
+                <button type="button" class="filter-chip is-on" data-filter="infrastructure"><span class="type-symbol symbol-infrastructure"></span>Infraestructura</button>
+              </div>
+            </div>
+            <div id="feed-content" class="feed-content" aria-live="polite"></div>
+            <div class="feed-footer"><span class="shield">✓</span> Los reportes ciudadanos se revisan antes de publicarse</div>
+          </section>
+
+          <aside class="right-rail" aria-label="Información de MZT Conecta">
+            <section class="trends-card" aria-labelledby="trends-title">
+              <div class="trends-heading"><span class="trends-icon" aria-hidden="true">↗</span><div><span class="rail-eyebrow">LO MÁS DESTACADO</span><h2 id="trends-title">Tendencias</h2></div></div>
+              <p class="trends-intro">Las publicaciones más votadas por la comunidad.</p>
+              <div id="trends-list" class="trends-list" aria-live="polite"></div>
+              <p class="trends-note">Votos simulados en los ejemplos y reacciones guardadas en este navegador.</p>
+            </section>
+            <section class="stats-strip" id="stats-strip" aria-label="Resumen de datos de demostración">
+              <div class="rail-section-head"><h3>Actividad del día</h3><span>EN EL MURO</span></div>
+              <div class="stat"><span class="stat-icon cyan">◉</span><span><strong id="count-news">0</strong><small>Noticias del día</small></span></div>
+              <div class="stat"><span class="stat-icon amber">◇</span><span><strong id="count-citizen">0</strong><small>Reportes ciudadanos</small></span></div>
+              <div class="stat"><span class="stat-icon coral">□</span><span><strong id="count-infrastructure">0</strong><small>Reportes de infraestructura</small></span></div>
+              <span class="stats-disclaimer">Datos de ejemplo, no reflejan incidentes reales.</span>
+            </section>
+            <section class="rail-info"><span class="rail-eyebrow">CÓMO FUNCIONA</span><h3>Información con contexto</h3><div class="rail-info-row"><span class="rail-dot cyan-dot"></span><span>Noticias enlazadas a su fuente original</span></div><div class="rail-info-row"><span class="rail-dot amber-dot"></span><span>Reportes ciudadanos etiquetados como no oficiales</span></div><div class="rail-info-row"><span class="rail-dot coral-dot"></span><span>Problemas de infraestructura visibles hasta atenderse</span></div></section>
+            <p class="rail-footnote">MZT Conecta v0.5 · Prototipo local para Cultura Emprendedora.</p>
+          </aside>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+  <aside id="drawer" class="drawer" aria-hidden="true" aria-label="Panel de detalle">
+    <div id="drawer-content"></div>
+  </aside>
+  <!-- Vista rápida del punto: no desplaza el muro ni cierra el detalle. -->
+  <div id="location-overlay" class="location-overlay" hidden>
+    <section id="location-modal" class="location-modal" role="dialog" aria-modal="true" aria-labelledby="location-modal-title" tabindex="-1">
+      <div class="location-modal-heading">
+        <div><span class="rail-eyebrow">UBICACIÓN DE LA PUBLICACIÓN</span><h2 id="location-modal-title">Mapa del reporte</h2><p id="location-modal-place">Ubicación indicada por el autor</p></div>
+        <button type="button" class="location-close" id="location-close" aria-label="Cerrar mapa y volver a la publicación">×</button>
+      </div>
+      <div class="location-mini-shell">
+        <div id="location-mini-map" class="location-mini-map" aria-label="Mapa ampliado de la ubicación"></div>
+        <div id="location-loading" class="location-loading" role="status">Cargando mapa de la ubicación…</div>
+      </div>
+      <div class="location-modal-footer">
+        <span id="location-coordinates" class="location-coordinates"></span>
+        <a id="location-external" href="https://www.openstreetmap.org/" target="_blank" rel="noopener noreferrer">Abrir en OpenStreetMap ↗</a>
+      </div>
+      <p id="location-disclaimer" class="location-disclaimer">Esta ubicación corresponde a un reporte de demostración.</p>
+    </section>
+  </div>
+  <!-- Selector independiente de ubicación: no afecta al mapa principal ni el formulario abierto. -->
+  <div id="picker-overlay" class="picker-overlay" hidden>
+    <section id="picker-dialog" class="picker-dialog" role="dialog" aria-modal="true" aria-labelledby="picker-title" aria-describedby="picker-description" tabindex="-1">
+      <header class="picker-heading">
+        <div><span class="rail-eyebrow">UBICACIÓN DEL REPORTE</span><h2 id="picker-title">Elige un punto en el mapa</h2><p id="picker-description">Toca el mapa para colocar el marcador. También puedes arrastrarlo para ajustar la posición.</p></div>
+        <button type="button" id="picker-close" class="location-close" aria-label="Cerrar sin guardar la ubicación">×</button>
+      </header>
+      <div class="picker-map-shell">
+        <div id="picker-map" class="picker-map" aria-label="Mapa para seleccionar la ubicación del reporte"></div>
+        <div id="picker-loading" class="location-loading" role="status">Cargando el mapa para elegir ubicación…</div>
+      </div>
+      <footer class="picker-footer">
+        <div class="picker-selection"><small>COORDENADAS SELECCIONADAS</small><strong id="picker-coordinates">—</strong><span id="picker-status">Elige un punto sobre el mapa.</span></div>
+        <div class="picker-actions"><button type="button" class="picker-cancel" id="picker-cancel">Cancelar</button><button type="button" class="picker-confirm" id="picker-confirm" disabled>Usar esta ubicación</button></div>
+      </footer>
+    </section>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
