@@ -1,6 +1,7 @@
 import {CATEGORY_OPTIONS, PLACES, TYPE_INFO, dateISO, offsetDate} from './data.js';
 import {getItems, saveItems, getRole, saveRole, newId, resetDemo} from './storage.js';
 import {initMap, setMapItems, focusMapItem, resizeMap, createLocationPreview, destroyLocationPreview, createPickerMap, destroyPickerMap} from './map.js';
+import {THEMES, themeSelection, activePalette, applyTheme, choosePreset, chooseCustom, restoreDefault} from './theme.js';
 
 const $ = sel => document.querySelector(sel);
 let items = getItems();
@@ -15,6 +16,8 @@ let customMapPoint = false;
 let pickerReturnFocus = null;
 let pickerCoords = null;
 let toastTimer = null;
+const PROFILE_KEY = 'mzt-conecta-demo-profile-v1';
+applyTheme();
 // Una reacción personal por publicación, exclusivamente de demostración local.
 // Recuento ilustrativo para las publicaciones ficticias. No son votos de usuarios reales.
 const demoVoteCounts = Object.freeze({
@@ -80,6 +83,59 @@ function renderTrends(){
       <span class="trend-votes" aria-label="${voteCount(item)} votos"><span aria-hidden="true">▲</span>${voteCount(item)}</span>
     </button>`).join('') : '<p class="trends-empty">Todavía no hay publicaciones aprobadas.</p>';
 }
+function demoProfileName() {
+  try {
+    const value = localStorage.getItem(PROFILE_KEY);
+    return value && value.length <= 30 ? value : 'Persona de Mazatlán';
+  } catch { return 'Persona de Mazatlán'; }
+}
+function renderAccount() {
+  const picked = themeSelection();
+  const colors = activePalette();
+  const name = demoProfileName();
+  const roleName = ({ciudadano:'Ciudadano', lector:'Lector', editor:'Editor'})[role] || 'Visitante';
+  const options = Object.entries(THEMES).map(([key, theme]) => `
+    <button type="button" class="theme-tile ${picked.preset === key ? 'chosen' : ''}" data-theme-preset="${key}" aria-pressed="${picked.preset === key}">
+      <span class="theme-sample" style="--sample-sidebar:${theme.sidebar};--sample-primary:${theme.primary};--sample-accent:${theme.accent};--sample-bg:${theme.background}">
+        <span class="sample-bar"></span><span class="sample-body"><span></span><span></span><span></span></span>
+      </span>
+      <span class="theme-tile-copy"><strong>${esc(theme.name)}</strong><small>${esc(theme.description)}</small></span>
+      <span class="theme-select-mark">${picked.preset === key ? '✓ Elegido' : 'Elegir'}</span>
+    </button>`).join('');
+  const fields = [
+    ['sidebar','Barra lateral','Color del menú y del encabezado de paneles'],
+    ['primary','Color principal','Botones, indicadores y enlaces destacados'],
+    ['accent','Color de acento','Detalles, símbolos y elementos activos'],
+    ['background','Fondo','Superficie general de la aplicación']
+  ].map(([id,label,hint]) => `
+    <label class="color-field"><span class="color-field-text"><strong>${label}</strong><small>${hint}</small></span>
+      <input type="color" name="${id}" value="${colors[id]}" aria-label="${label}">
+      <span class="color-hex" data-hex-for="${id}">${colors[id].toUpperCase()}</span>
+    </label>`).join('');
+  $('#account-panel').innerHTML = `
+    <div class="account-heading"><span class="account-eyebrow">TU ESPACIO PERSONAL · PROTOTIPO</span><h1>Mi cuenta <em>y apariencia.</em></h1>
+      <p>Personaliza MZT Conecta para que se vea como a ti te gusta. Los cambios se aplican de inmediato.</p></div>
+    <div class="account-grid">
+      <section class="account-card profile-card" aria-labelledby="profile-heading">
+        <div class="account-card-heading"><span class="account-card-icon">◎</span><div><small>PERFIL</small><h2 id="profile-heading">Tus datos</h2></div></div>
+        <div class="profile-person"><span class="profile-avatar">${esc(name.charAt(0).toUpperCase())}</span><div><strong>${esc(name)}</strong><small>Rol de prueba: ${roleName}</small></div></div>
+        <form id="demo-profile-form" class="profile-demo-form"><label for="demo-profile-name">Nombre visible (demo)</label>
+          <div><input id="demo-profile-name" name="name" maxlength="30" minlength="3" required value="${esc(name)}" autocomplete="off"><button type="submit">Guardar</button></div>
+        </form>
+        <div class="account-notice"><strong>Modo demostración</strong><p>Este perfil no es un registro ni una sesión real. Tu nombre y los colores se guardan únicamente en este navegador. Más adelante conectaremos las cuentas a la base de datos.</p></div>
+      </section>
+      <section class="account-card appearance-card" aria-labelledby="appearance-heading">
+        <div class="account-card-heading"><span class="account-card-icon">✧</span><div><small>PERSONALIZACIÓN</small><h2 id="appearance-heading">Apariencia de MZT Conecta</h2></div></div>
+        <p class="appearance-intro">Elige uno de nuestros diseños o crea una combinación única. El tema seleccionado se conserva al regresar a la página.</p>
+        <div class="theme-section-title"><strong>Temas disponibles</strong><span>Haz clic para aplicarlos</span></div>
+        <div class="theme-grid">${options}</div>
+        <div class="custom-title"><div><strong>Personaliza tus colores</strong><p>Elige libremente los colores que prefieras.</p></div><span class="custom-badge">${picked.preset === 'custom' ? 'ACTIVO' : 'A TU GUSTO'}</span></div>
+        <form id="custom-theme-form" class="custom-theme-form">${fields}
+          <div class="theme-actions"><button class="theme-apply" type="submit">Aplicar mis colores</button><button class="theme-reset" type="button" data-action="reset-theme">Restablecer original</button></div>
+        </form>
+      </section>
+    </div>`;
+}
 function typeLabel(item){return item.resolvedAt && item.type==='infrastructure' ? 'Atendido' : TYPE_INFO[item.type]?.label||'Publicación';}
 function statusLabel(item){return ({pending:'Recibido · esperando revisión',reviewed:'Revisado · esperando al editor',rejected:'Rechazado',approved:item.resolvedAt?'Atendido':'Publicado'})[item.review] || 'Sin estado';}
 function card(item){
@@ -111,7 +167,7 @@ function empty(title,desc,buttonText='',action=''){
   return `<div class="empty-state"><span class="empty-icon">⌖</span><strong>${esc(title)}</strong><p>${esc(desc)}</p>${buttonText?`<button type="button" data-action="${esc(action)}">${esc(buttonText)}</button>`:''}</div>`;
 }
 function canOpenView(next){
-  return next==='explorar' || (next==='mis-reportes' && role!=='visitante') || (next==='moderacion' && ['lector','editor'].includes(role));
+  return next==='explorar' || (['mis-reportes','mi-cuenta'].includes(next) && role!=='visitante') || (next==='moderacion' && ['lector','editor'].includes(role));
 }
 function updateNavigation(){
   document.querySelectorAll('.side-link[data-view]').forEach(button=>{
@@ -124,9 +180,10 @@ function updateNavigation(){
   $('#mod-count').hidden=!['lector','editor'].includes(role)||waiting===0;
 }
 function setView(next){
-  if(!canOpenView(next)) {showToast('Este apartado no está disponible para el rol seleccionado.');return;}
+  if(!canOpenView(next)) {showToast('Este apartado requiere un rol de prueba con acceso.');return;}
   view=next; selectedId=null;
   document.querySelectorAll('.side-link[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===next));
+  if(next==='mi-cuenta') { render(); return; }
   const headings={explorar:['PUBLICACIONES DE LA COMUNIDAD','El muro de Mazatlán'], 'mis-reportes':['TU PARTICIPACIÓN','Mis reportes'], moderacion:role==='lector'?['PANEL DE REVISIÓN','Reportes por revisar']:['PANEL EDITORIAL','Revisión pendiente']};
   $('.mini-eyebrow').textContent=headings[next][0];
   $('#feed-title').textContent=headings[next][1];
@@ -142,6 +199,14 @@ function render() {
   if(!canOpenView(view)) view='explorar';
   updateNavigation();
   document.querySelectorAll('.side-link[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
+  const isAccount = view === 'mi-cuenta';
+  $('.page-heading').hidden = isAccount;
+  $('#map-panel').hidden = isAccount;
+  $('.social-layout').hidden = isAccount;
+  $('#account-panel').hidden = !isAccount;
+  $('#account-shortcut').hidden = role === 'visitante';
+  $('#account-shortcut').classList.toggle('current', isAccount);
+  if(isAccount) { renderAccount(); return; }
   updateStats();
   renderTrends();
   $('#role-select').value=role;
@@ -440,6 +505,48 @@ $('#role-select').addEventListener('change',e=>{
   role=e.target.value;saveRole(role);
   if(!canOpenView(view))setView('explorar');else setView(view);
   showToast('Rol de demostración: '+e.target.selectedOptions[0].textContent+'. No equivale a una cuenta real.');
+});
+$('#account-shortcut').addEventListener('click', () => setView('mi-cuenta'));
+$('#account-panel').addEventListener('click', e => {
+  const preset = e.target.closest('[data-theme-preset]');
+  if (preset && choosePreset(preset.dataset.themePreset)) {
+    renderAccount();
+    showToast('Tema aplicado. Tu preferencia se guardó en este navegador.');
+    return;
+  }
+  if (e.target.closest('[data-action="reset-theme"]')) {
+    restoreDefault();
+    renderAccount();
+    showToast('Recuperamos los colores originales de MZT Conecta.');
+  }
+});
+$('#account-panel').addEventListener('input', e => {
+  if (e.target.matches('#custom-theme-form input[type="color"]')) {
+    const field = $('#account-panel').querySelector(`[data-hex-for="${e.target.name}"]`);
+    if (field) field.textContent = e.target.value.toUpperCase();
+  }
+});
+$('#account-panel').addEventListener('submit', e => {
+  if (e.target.id === 'custom-theme-form') {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const palette = Object.fromEntries(['sidebar','primary','accent','background'].map(key => [key, String(form.get(key) || '')]));
+    if (!chooseCustom(palette)) { showToast('Revisa los cuatro colores seleccionados.'); return; }
+    renderAccount();
+    showToast('Tu paleta personalizada ya está activa.');
+  }
+  if (e.target.id === 'demo-profile-form') {
+    e.preventDefault();
+    const name = String(new FormData(e.target).get('name') || '').trim();
+    if (name.length < 3 || name.length > 30 || /[<>\r\n]/.test(name)) {
+      showToast('Usa un nombre de 3 a 30 caracteres, sin símbolos HTML.');
+      return;
+    }
+    try { localStorage.setItem(PROFILE_KEY, name); }
+    catch { showToast('No se pudo guardar el nombre en este dispositivo.'); return; }
+    renderAccount();
+    showToast('Nombre de demostración actualizado.');
+  }
 });
 $('#side-nav').addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b)setView(b.dataset.view);});
 $('#sidebar-report').addEventListener('click',openReportForm);
