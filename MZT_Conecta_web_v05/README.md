@@ -1,9 +1,18 @@
-# MZT Conecta · Versión 0.5 · Revisión de reportes por Lector
+# MZT Conecta · Versión 0.6 · Apariencia y cuenta de demostración
 
 **Proyecto de Cultura Emprendedora — Mazatlán, Sinaloa**  
 Lema: **«Porque lo que pasa en Mazatlán nos une»**
 
 La aplicación parte del documento del equipo «MZT Conecta: qué vamos a construir (primera versión de la web)», 4 de noviembre de 2026. Es un **prototipo funcional en el navegador**, no un portal público ni un servicio que publique avisos reales.
+
+## Novedades de la v0.6
+
+- El menú lateral ahora cuenta con transiciones, animación al seleccionar una sección, desplazamiento suave de iconos y efectos al pasar el cursor, inspirados en el panel de **Acceso Lince**.
+- Se agregó el apartado **Mi cuenta** y su acceso rápido en la barra superior. Para verlo, selecciona **Ciudadano (demo)**, **Lector (demo)** o **Editor (demo)** en el selector «Simular rol».
+- En Mi cuenta se puede cambiar el nombre visible de demostración, elegir entre **MZT Conecta**, **Guinda institucional**, **Azul medianoche**, **Ciruela imperial** y **Terracota noble**, o crear una paleta personalizada con cuatro colores.
+- El tema se aplica sin recargar la página y se conserva con `localStorage` en ese mismo navegador. Se respeta la preferencia de movimiento reducido del sistema.
+- **No se han implementado cuentas reales, contraseñas, correo, Supabase ni base de datos.** El selector de roles sigue siendo de prueba. Las publicaciones todavía son locales y ficticias; no usar esta versión como sitio público operativo.
+- El mapa, el muro, las tendencias, las ventanas de ubicación y la revisión de reportes permanecen en esta versión.
 
 ## Cómo abrirlo en Linux Mint / Ubuntu
 

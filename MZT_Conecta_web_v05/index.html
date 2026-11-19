@@ -27,6 +27,7 @@
         <button type="button" class="side-link active" data-view="explorar"><span class="nav-ico">▦</span><span>Inicio · Muro</span><span class="nav-tail">›</span></button>
         <button type="button" class="side-link" data-view="mis-reportes"><span class="nav-ico">▤</span><span>Mis reportes</span></button>
         <button type="button" class="side-link" data-view="moderacion"><span class="nav-ico">◈</span><span>Moderación</span><span class="mod-count" id="mod-count" hidden>0</span></button>
+        <button type="button" class="side-link account-link" data-view="mi-cuenta"><span class="nav-ico">◎</span><span>Mi cuenta</span></button>
       </nav>
       <p class="nav-heading nav-heading-lower">PARTICIPA</p>
       <button type="button" class="side-link subtle" id="sidebar-report"><span class="nav-ico">＋</span><span>Crear un reporte</span></button>
@@ -36,7 +37,7 @@
         <strong>Una ciudad más conectada empieza contigo.</strong>
         <p>Infórmate, comparte y ayuda a tu comunidad.</p>
       </div>
-      <div class="sidebar-bottom"><span class="mini-live"></span> PLATAFORMA EN DEMOSTRACIÓN <span>V 0.5</span></div>
+      <div class="sidebar-bottom"><span class="mini-live"></span> PLATAFORMA EN DEMOSTRACIÓN <span>V 0.6</span></div>
     </aside>
 
     <main class="main-area">
@@ -44,7 +45,8 @@
         <div class="topbar-location"><span class="location-dot">✦</span><span>México <i>/</i> Sinaloa <i>/</i> <strong>Mazatlán</strong></span></div>
         <div class="topbar-actions">
           <span class="demo-pill"><span></span> DATOS DE EJEMPLO</span>
-          <label for="role-select" class="role-label">Explorar como</label>
+          <button type="button" id="account-shortcut" class="account-shortcut" hidden>◎ Mi cuenta</button>
+          <label for="role-select" class="role-label">Simular rol</label>
           <select id="role-select" aria-label="Seleccionar rol de prueba">
             <option value="visitante">Visitante</option>
             <option value="ciudadano">Ciudadano (demo)</option>
@@ -70,6 +72,8 @@
           <div class="map-legend" aria-label="Leyenda del mapa"><div><span class="type-symbol symbol-news"></span>Noticias</div><div><span class="type-symbol symbol-citizen"></span>Ciudadanos</div><div><span class="type-symbol symbol-infrastructure"></span>Infraestructura</div></div>
           <div class="map-fallback" id="map-fallback" hidden><span>⌖</span><strong>El mapa requiere conexión a Internet</strong><small>El muro de publicaciones sigue disponible.</small></div>
         </section>
+
+        <section id="account-panel" class="account-panel" aria-label="Mi cuenta y apariencia" hidden></section>
 
         <div class="social-layout">
           <section class="feed-panel" aria-labelledby="feed-title">
@@ -114,7 +118,7 @@
               <span class="stats-disclaimer">Datos de ejemplo, no reflejan incidentes reales.</span>
             </section>
             <section class="rail-info"><span class="rail-eyebrow">CÓMO FUNCIONA</span><h3>Información con contexto</h3><div class="rail-info-row"><span class="rail-dot cyan-dot"></span><span>Noticias enlazadas a su fuente original</span></div><div class="rail-info-row"><span class="rail-dot amber-dot"></span><span>Reportes ciudadanos etiquetados como no oficiales</span></div><div class="rail-info-row"><span class="rail-dot coral-dot"></span><span>Problemas de infraestructura visibles hasta atenderse</span></div></section>
-            <p class="rail-footnote">MZT Conecta v0.5 · Prototipo local para Cultura Emprendedora.</p>
+            <p class="rail-footnote">MZT Conecta v0.6 · Prototipo local para Cultura Emprendedora.</p>
           </aside>
         </div>
       </div>
