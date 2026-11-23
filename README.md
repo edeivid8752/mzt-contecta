@@ -142,4 +142,4 @@ MZT_Conecta_web_v10/
 
 ---
 
-**Versión:** 1.0 · **Proyecto:** MZT Conecta · **Ámbito:** Mazatlán, Sinaloa, México.
+**Versión:** 1.1 · **Proyecto:** MZT Conecta · **Ámbito:** Mazatlán, Sinaloa, México.
