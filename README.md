@@ -1,4 +1,4 @@
-# MZT Conecta — v1.0
+# MZT Conecta — v1.1
 
 **Porque lo que pasa en Mazatlán nos une.**
 
