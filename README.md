@@ -4,17 +4,19 @@
 
 MZT Conecta es una plataforma comunitaria para compartir noticias locales, avisos y reportes ciudadanos en Mazatlán, con un muro social y un mapa interactivo.
 
-## Funciones de la versión 1.0
+## Funciones de la versión 1.1
 
-- **Cuentas reales:** registro e inicio de sesión con Supabase Auth.
-- **Publicaciones compartidas:** los reportes se guardan en Supabase, vinculados con el autor. La descripción, la fotografía y la ubicación pueden dejarse vacías.
-- **Perfiles públicos:** nombre, `@usuario`, biografía, fotografía, portada y publicaciones del usuario.
-- **Seguidores:** seguir o dejar de seguir otros perfiles y consultar seguidores y seguidos.
-- **Comentarios y votos:** interacciones guardadas en la base de datos y visibles entre usuarios registrados.
-- **Moderación:** los reportes ciudadanos esperan aprobación; el rol **Editor** puede revisarlos, aprobarlos o rechazarlos y el **Lector** puede consultarlos sin modificarlos.
-- **Imágenes:** carga de fotografías mediante Supabase Storage, con ajuste de encuadre de la foto de perfil.
-- **Mapa de Mazatlán:** visualización de ubicaciones de publicaciones y reportes.
-- **Actualización del muro:** opción **Actualizar** para consultar las novedades.
+- **Cuentas reales:** registro e inicio de sesión con Supabase Auth; se conservan las funciones sociales de la versión 1.0.
+- **Publicaciones compartidas:** los reportes se guardan en Supabase, vinculados con su autor. La descripción, la fotografía y la ubicación siguen siendo opcionales.
+- **Mapas dentro de las publicaciones:** cuando un reporte incluye coordenadas, aparece un mapa interactivo con el marcador exclusivo de esa publicación; cuando no incluye ubicación, no se muestra ningún espacio ni aviso adicional.
+- **Mapa principal ampliable:** un botón abre el mapa de Mazatlán en una ventana de mayor tamaño para explorar las publicaciones.
+- **Filtros avanzados combinables:** búsqueda por fecha, colonia o zona registrada, orden cronológico, cantidad de votos «Me sirve» y presencia de ubicación.
+- **Filtros sincronizados:** las categorías Noticias, Comunidad e Infraestructura filtran tanto el muro como los marcadores del mapa, también en la vista ampliada.
+- **Navegación mejorada:** el logotipo permite volver al muro principal desde las demás secciones sin recargar la aplicación.
+- **Mapa más despejado:** se retiraron los recuadros informativos y los controles de categorías duplicados que ocupaban espacio dentro del mapa.
+- **Perfiles e interacción social:** perfiles públicos, seguidores, comentarios y votos compartidos mediante Supabase.
+- **Moderación:** los reportes ciudadanos requieren aprobación; el **Editor** puede revisarlos, aprobarlos o rechazarlos y el **Lector** puede consultarlos sin modificarlos.
+- **Imágenes y actualización:** fotografías mediante Supabase Storage y opción **Actualizar** para consultar las novedades.
 
 > Las publicaciones marcadas como **EJEMPLO** son datos ficticios de demostración, no reportes oficiales. Las publicaciones pendientes no aparecen en el muro general hasta que las aprueba un Editor.
 

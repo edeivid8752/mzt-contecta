@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#062647">
+  <meta name="description" content="MZT Conecta: un lugar para conocer lo que pasa en Mazatlán. Noticias y reportes comunitarios en un mapa.">
+  <title>MZT Conecta · Muro ciudadano</title>
+  <link rel="icon" type="image/png" href="./assets/isotipo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="./src/styles.css">
+  <script type="module" src="./src/main.js"></script>
+</head>
+<body>
+  <section id="auth-gate" class="auth-gate" aria-labelledby="auth-title">
+    <div class="auth-frame">
+      <div class="auth-intro">
+        <div class="auth-logo"><img src="./assets/isotipo.png" alt="MZT Conecta"><strong>MZT<span>Conecta</span></strong></div>
+        <p class="auth-kicker">PORQUE LO QUE PASA EN MAZATLÁN NOS UNE</p>
+        <h1>Tu ciudad, en un <em>solo lugar.</em></h1>
+        <p>Conoce los reportes, explora el mapa y participa en la comunidad de Mazatlán desde tu propia cuenta.</p>
+        <div class="auth-highlights"><span>⌖ Mapa local</span><span>▤ Publicaciones</span><span>◎ Tu comunidad</span></div>
+        <p class="auth-demo-warning">Los contenidos señalados «EJEMPLO» son ficticios. Los reportes ciudadanos reales no son información oficial.</p>
+      </div>
+      <div class="auth-panel">
+        <p class="auth-eyebrow">BIENVENIDO A MZT CONECTA</p>
+        <h2 id="auth-title">Entra a tu comunidad</h2>
+        <p class="auth-panel-intro">Usa tu correo electrónico y contraseña para continuar.</p>
+        <div class="auth-tabs" id="auth-tabs" role="group" aria-label="Elegir acceso">
+          <button type="button" data-auth-view="login" class="selected" aria-pressed="true">Iniciar sesión</button>
+          <button type="button" data-auth-view="register" aria-pressed="false">Crear cuenta</button>
+        </div>
+        <form id="login-form" class="auth-form">
+          <label>Correo electrónico<input name="email" type="email" autocomplete="email" required placeholder="tu@correo.com"></label>
+          <label>Contraseña<input name="password" type="password" autocomplete="current-password" required placeholder="Tu contraseña"></label>
+          <button type="submit" class="auth-submit">Entrar a MZT Conecta</button>
+          <button type="button" class="auth-text-link" data-auth-view="forgot">Olvidé mi contraseña</button>
+        </form>
+        <form id="register-form" class="auth-form" hidden>
+          <label>Correo electrónico<input name="email" type="email" autocomplete="email" required placeholder="tu@correo.com"></label>
+          <label>Contraseña<input name="password" type="password" autocomplete="new-password" minlength="10" required placeholder="Mínimo 10 caracteres"></label>
+          <label>Confirmar contraseña<input name="confirm" type="password" autocomplete="new-password" minlength="10" required placeholder="Repite tu contraseña"></label>
+          <button type="submit" class="auth-submit">Crear mi cuenta</button>
+          <p class="auth-help">Después del registro recibirás un mensaje para verificar tu correo, si está habilitada la confirmación en Supabase.</p>
+        </form>
+        <form id="forgot-form" class="auth-form" hidden>
+          <p class="auth-help">Te enviaremos un enlace para recuperar el acceso.</p>
+          <label>Correo electrónico<input name="email" type="email" autocomplete="email" required placeholder="tu@correo.com"></label>
+          <button type="submit" class="auth-submit">Enviar enlace</button>
+          <button type="button" class="auth-text-link" data-auth-view="login">Volver a iniciar sesión</button>
+        </form>
+        <form id="recover-form" class="auth-form" hidden>
+          <p class="auth-help">Elige tu nueva contraseña para terminar la recuperación.</p>
+          <label>Nueva contraseña<input name="password" type="password" autocomplete="new-password" minlength="10" required></label>
+          <label>Confirmar contraseña<input name="confirm" type="password" autocomplete="new-password" minlength="10" required></label>
+          <button type="submit" class="auth-submit">Guardar nueva contraseña</button>
+        </form>
+        <div id="auth-feedback" class="auth-feedback" role="status" aria-live="polite" hidden></div>
+        <p id="auth-configuration" class="auth-configuration" hidden>Falta conectar Supabase. Los formularios están preparados, pero no crearán cuentas hasta introducir la URL y la clave publicable del proyecto.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="app-shell" hidden>
+    <aside class="sidebar" id="sidebar" aria-label="Navegación principal">
+      <button type="button" class="brand" id="brand-home" title="Ir al muro principal" aria-label="Ir al muro principal de MZT Conecta">
+        <span class="brand-icon"><img src="./assets/isotipo.png" alt=""></span>
+        <span class="brand-copy"><strong>MZT<span>Conecta</span></strong><small>MAZATLÁN, SINALOA</small></span>
+      </button>
+      <div class="sidebar-rule"></div>
+      <p class="nav-heading">TU COMUNIDAD</p>
+      <nav class="side-nav" id="side-nav">
+        <button type="button" class="side-link active" data-view="explorar"><span class="nav-ico">▦</span><span>Inicio · Muro</span><span class="nav-tail">›</span></button>
+        <button type="button" class="side-link" data-view="personas"><span class="nav-ico">♧</span><span>Explorar perfiles</span></button>
+        <button type="button" class="side-link" data-view="moderacion"><span class="nav-ico">◈</span><span>Moderación</span><span class="mod-count" id="mod-count" hidden>0</span></button>
+        <button type="button" class="side-link account-link" data-view="mi-cuenta"><span class="nav-ico nav-account-avatar" id="sidebar-avatar">◎</span><span>Mi cuenta</span></button>
+        <button type="button" class="side-link" data-view="configuracion"><span class="nav-ico">⚙</span><span>Configuración</span></button>
+      </nav>
+      <p class="nav-heading nav-heading-lower">PARTICIPA</p>
+      <button type="button" class="side-link subtle" id="sidebar-report"><span class="nav-ico">＋</span><span>Crear un reporte</span></button>
+      <div class="sidebar-grow"></div>
+      <div class="community-note">
+        <span class="note-sun">✳</span>
+        <strong>Una ciudad más conectada empieza contigo.</strong>
+        <p>Infórmate, comparte y ayuda a tu comunidad.</p>
+      </div>
+      <button type="button" id="sign-out" class="side-link subtle sign-out-side"><span class="nav-ico">⇥</span><span>Cerrar sesión</span></button>
+      <div class="sidebar-bottom"><span class="mini-live"></span> COMUNIDAD REAL + EJEMPLOS <span>V 1.1</span></div>
+    </aside>
+
+    <main class="main-area">
+      <div class="main-body">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow"><span class="eyebrow-line"></span> EL MURO DE NUESTRA CIUDAD</p>
+            <h1>Lo que pasa en <em>Mazatlán.</em></h1>
+            <p class="heading-subtitle">Noticias, avisos y reportes de nuestra comunidad en un solo lugar.</p>
+          </div>
+        </div>
+
+        <!-- El mapa es una vista principal en la cabecera del muro. -->
+        <section class="map-panel map-hero" id="map-panel" aria-label="Mapa interactivo de Mazatlán">
+          <div id="map" class="map-canvas"></div>
+          <button id="expand-main-map" type="button" class="map-expand-button" title="Ampliar el mapa" aria-label="Ampliar mapa de Mazatlán">⛶ <span>Ampliar</span></button>
+          <div class="map-fallback" id="map-fallback" hidden><span>⌖</span><strong>El mapa requiere conexión a Internet</strong><small>El muro de publicaciones sigue disponible.</small></div>
+        </section>
+
+        <section id="account-panel" class="account-panel" aria-label="Mi cuenta y apariencia" hidden></section>
+        <section id="profile-page" class="social-profile-page" aria-label="Perfil de la comunidad" hidden></section>
+        <section id="post-page" class="post-page" aria-label="Publicación y comentarios" hidden></section>
+        <section id="people-page" class="people-page" aria-label="Explorar perfiles" hidden></section>
+
+        <div class="social-layout">
+          <section class="feed-panel" aria-labelledby="feed-title">
+            <div class="compose-strip">
+              <span class="compose-avatar"><img src="./assets/isotipo.png" alt=""></span>
+              <button id="composer-report" type="button" class="compose-prompt">¿Qué está pasando en tu colonia?</button>
+              <button id="composer-create" type="button" class="compose-button">＋ Publicar reporte</button>
+            </div>
+            <div class="feed-head">
+              <div class="feed-heading-row"><div><p class="mini-eyebrow">PUBLICACIONES DE LA COMUNIDAD</p><h2 id="feed-title">El muro de Mazatlán</h2></div><span id="result-count" class="result-count">0</span></div>
+              <div class="feed-controls">
+                <button id="advanced-filters-toggle" type="button" class="advanced-filters-toggle" aria-expanded="false" aria-controls="advanced-filters-panel">☷ &nbsp;Filtros <span id="filter-active-count" hidden>0</span></button>
+                <div class="search-wrap"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg><input id="search-input" type="search" placeholder="Buscar publicaciones..." autocomplete="off" aria-label="Buscar noticias y reportes"></div>
+              </div>
+              <form id="advanced-filters-panel" class="advanced-filters-panel" hidden aria-label="Filtros avanzados del muro">
+                <div class="advanced-filters-title"><strong>Personalizar resultados</strong><button type="button" id="advanced-filters-close" aria-label="Cerrar filtros">×</button></div>
+                <div class="advanced-fields">
+                  <label>Fecha de publicación<select id="filter-period"><option value="all">Todas las fechas</option><option value="today">Hoy</option><option value="week">Últimos 7 días</option><option value="month">Últimos 30 días</option><option value="custom">Rango personalizado</option></select></label>
+                  <div id="filter-custom-dates" class="advanced-date-range" hidden><label>Desde<input id="filter-date-from" type="date"></label><label>Hasta<input id="filter-date-to" type="date"></label></div>
+                  <label>Colonia o zona<select id="filter-region"><option value="all">Todas las zonas</option></select></label>
+                  <label>Ordenar publicaciones<select id="filter-sort"><option value="newest">Más recientes</option><option value="oldest">Más antiguas</option><option value="votes">Más «Me sirve»</option></select></label>
+                  <label class="advanced-check"><input type="checkbox" id="filter-located"> Solo publicaciones con ubicación</label>
+                </div>
+                <p id="region-source-hint" class="region-source-hint">Las zonas sin polígono se filtran por el nombre registrado en la publicación.</p>
+                <label class="region-import-label" for="region-geojson-import">Importar contornos verificados (.geojson) <input type="file" id="region-geojson-import" accept=".geojson,.json,application/geo+json,application/json"></label>
+                <div class="advanced-actions"><button type="button" id="filter-clear">Limpiar filtros</button><button type="submit" id="filter-apply">Aplicar filtros</button></div>
+              </form>
+              <div class="filter-heading">EXPLORAR POR CATEGORÍA</div>
+              <div class="filter-row" id="filter-row">
+                <button type="button" class="filter-chip is-on" data-filter="news"><span class="type-symbol symbol-news"></span>Noticias</button>
+                <button type="button" class="filter-chip is-on" data-filter="citizen"><span class="type-symbol symbol-citizen"></span>Comunidad</button>
+                <button type="button" class="filter-chip is-on" data-filter="infrastructure"><span class="type-symbol symbol-infrastructure"></span>Infraestructura</button>
+              </div>
+            </div>
+            <div id="feed-content" class="feed-content" aria-live="polite"></div>
+            <div class="feed-footer"><span class="shield">✓</span> Los reportes ciudadanos se revisan antes de publicarse <button type="button" id="refresh-now" class="refresh-now" title="Actualizar publicaciones desde Supabase">⟳ Actualizar</button></div>
+          </section>
+
+          <aside class="right-rail" aria-label="Información de MZT Conecta">
+            <section class="trends-card" aria-labelledby="trends-title">
+              <div class="trends-heading"><span class="trends-icon" aria-hidden="true">↗</span><div><span class="rail-eyebrow">LO MÁS DESTACADO</span><h2 id="trends-title">Tendencias</h2></div></div>
+              <p class="trends-intro">Las publicaciones más votadas por la comunidad.</p>
+              <div id="trends-list" class="trends-list" aria-live="polite"></div>
+              <p class="trends-note">Votos de la comunidad en tiempo real tras actualizar. Los ejemplos tienen cifras ficticias.</p>
+            </section>
+            <section class="stats-strip" id="stats-strip" aria-label="Resumen de datos de demostración">
+              <div class="rail-section-head"><h3>Actividad del día</h3><span>EN EL MURO</span></div>
+              <div class="stat"><span class="stat-icon cyan">◉</span><span><strong id="count-news">0</strong><small>Noticias del día</small></span></div>
+              <div class="stat"><span class="stat-icon amber">◇</span><span><strong id="count-citizen">0</strong><small>Reportes ciudadanos</small></span></div>
+              <div class="stat"><span class="stat-icon coral">□</span><span><strong id="count-infrastructure">0</strong><small>Reportes de infraestructura</small></span></div>
+              <span class="stats-disclaimer">Incluye ejemplos ficticios claramente etiquetados; no son datos oficiales.</span>
+            </section>
+            <section class="rail-info"><span class="rail-eyebrow">CÓMO FUNCIONA</span><h3>Información con contexto</h3><div class="rail-info-row"><span class="rail-dot cyan-dot"></span><span>Noticias enlazadas a su fuente original</span></div><div class="rail-info-row"><span class="rail-dot amber-dot"></span><span>Reportes ciudadanos etiquetados como no oficiales</span></div><div class="rail-info-row"><span class="rail-dot coral-dot"></span><span>Problemas de infraestructura visibles hasta atenderse</span></div></section>
+            <p class="rail-footnote">MZT Conecta v1.1 · Comunidad compartida mediante Supabase. Ejemplos etiquetados como ficticios.</p>
+          </aside>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+  <aside id="drawer" class="drawer" aria-hidden="true" aria-label="Panel de detalle">
+    <div id="drawer-content"></div>
+  </aside>
+  <!-- Vista rápida del punto: no desplaza el muro ni cierra el detalle. -->
+  <div id="location-overlay" class="location-overlay" hidden>
+    <section id="location-modal" class="location-modal" role="dialog" aria-modal="true" aria-labelledby="location-modal-title" tabindex="-1">
+      <div class="location-modal-heading">
+        <div><span class="rail-eyebrow">UBICACIÓN DE LA PUBLICACIÓN</span><h2 id="location-modal-title">Mapa del reporte</h2><p id="location-modal-place">Ubicación indicada por el autor</p></div>
+        <button type="button" class="location-close" id="location-close" aria-label="Cerrar mapa y volver a la publicación">×</button>
+      </div>
+      <div class="location-mini-shell">
+        <div id="location-mini-map" class="location-mini-map" aria-label="Mapa ampliado de la ubicación"></div>
+        <div id="location-loading" class="location-loading" role="status">Cargando mapa de la ubicación…</div>
+      </div>
+      <div class="location-modal-footer">
+        <span id="location-coordinates" class="location-coordinates"></span>
+        <a id="location-external" href="https://www.openstreetmap.org/" target="_blank" rel="noopener noreferrer">Abrir en OpenStreetMap ↗</a>
+      </div>
+      <p id="location-disclaimer" class="location-disclaimer">Esta ubicación corresponde a un reporte de demostración.</p>
+    </section>
+  </div>
+  <!-- Selector independiente de ubicación: no afecta al mapa principal ni el formulario abierto. -->
+  <div id="picker-overlay" class="picker-overlay" hidden>
+    <section id="picker-dialog" class="picker-dialog" role="dialog" aria-modal="true" aria-labelledby="picker-title" aria-describedby="picker-description" tabindex="-1">
+      <header class="picker-heading">
+        <div><span class="rail-eyebrow">UBICACIÓN DEL REPORTE</span><h2 id="picker-title">Elige un punto en el mapa</h2><p id="picker-description">Toca el mapa para colocar el marcador. También puedes arrastrarlo para ajustar la posición.</p></div>
+        <button type="button" id="picker-close" class="location-close" aria-label="Cerrar sin guardar la ubicación">×</button>
+      </header>
+      <div class="picker-map-shell">
+        <div id="picker-map" class="picker-map" aria-label="Mapa para seleccionar la ubicación del reporte"></div>
+        <div id="picker-loading" class="location-loading" role="status">Cargando el mapa para elegir ubicación…</div>
+      </div>
+      <footer class="picker-footer">
+        <div class="picker-selection"><small>COORDENADAS SELECCIONADAS</small><strong id="picker-coordinates">—</strong><span id="picker-status">Elige un punto sobre el mapa.</span></div>
+        <div class="picker-actions"><button type="button" class="picker-cancel" id="picker-cancel">Cancelar</button><button type="button" class="picker-confirm" id="picker-confirm" disabled>Usar esta ubicación</button></div>
+      </footer>
+    </section>
+  </div>
+  <div id="public-profile-overlay" class="public-profile-overlay" hidden>
+    <section id="public-profile-dialog" class="public-profile-dialog" role="dialog" aria-modal="true" aria-labelledby="public-profile-title" tabindex="-1">
+      <button id="public-profile-close" class="public-profile-close" type="button" aria-label="Cerrar vista previa del perfil">×</button>
+      <div id="public-profile-content"></div>
+    </section>
+  </div>
+  <div id="crop-overlay" class="crop-overlay" hidden>
+    <section id="crop-dialog" class="crop-dialog" role="dialog" aria-modal="true" aria-labelledby="crop-title" tabindex="-1">
+      <header class="crop-heading"><div><small>PERSONALIZA TU IMAGEN</small><h2 id="crop-title">Ajustar foto de perfil</h2><p id="crop-hint">Arrastra la imagen para elegir el encuadre.</p></div><button id="crop-close" type="button" aria-label="Cerrar sin guardar">×</button></header>
+      <div class="crop-preview"><canvas id="crop-canvas" width="400" height="400" aria-label="Vista previa de la fotografía recortada"></canvas></div>
+      <label class="crop-zoom-label" for="crop-zoom">Escala de la imagen</label>
+      <input id="crop-zoom" type="range" min="1" max="3" step=".01" value="1">
+      <p id="crop-message" class="crop-message" role="status"></p>
+      <footer class="crop-actions"><button id="crop-reset" type="button">Restablecer</button><button id="crop-cancel" type="button">Cancelar</button><button id="crop-save" type="button">Usar imagen</button></footer>
+    </section>
+  </div>
+  <div id="expanded-map-overlay" class="expanded-map-overlay" hidden>
+    <section class="expanded-map-dialog" role="dialog" aria-modal="true" aria-labelledby="expanded-map-title">
+      <header><div><span>EXPLORAR MAZATLÁN</span><h2 id="expanded-map-title">Mapa de la comunidad</h2><p>Los filtros del muro también se aplican aquí.</p></div><button type="button" id="expanded-map-close" aria-label="Cerrar mapa ampliado">×</button></header>
+      <div id="expanded-map-host" class="expanded-map-host"></div>
+      <footer><span id="expanded-map-count">Mostrando publicaciones con ubicación</span><button type="button" id="expanded-map-back">Volver al muro</button></footer>
+    </section>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
