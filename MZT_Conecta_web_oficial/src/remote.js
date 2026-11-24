@@ -85,3 +85,5 @@ export async function socialAction(kind,id,user,extra){
  }
  return fail(await q);
 }
+
+export async function loadNotificationsV13(){const c=await client();return fail(await c.from('mzt_notifications').select('id,kind,post_id,created_at,read_at').order('created_at',{ascending:false}).limit(100));}
