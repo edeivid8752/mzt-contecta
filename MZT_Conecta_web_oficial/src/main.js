@@ -7,7 +7,7 @@ import {loadLocalProfile, normalizeUsername, validUsername} from './profile.js';
 import {editImage,closeCrop} from './crop.js';
 import {authorIdFor,personFor,syncPerson,followersOf,followingOf,isFollowing,commentsFor,countComments,localPersonIds,setSocialSnapshot,clearSocialSnapshot,voteCountFor} from './social.js';
 import {SUPABASE_URL} from './supabase-config.js';
-import {socialAction,loadCommunity,createPost,updateProfileServer,createCommentServer,deleteCommentServer,followServer,voteServer,moderatePostServer,resolvePostServer,uploadDataImage,removeImageServer} from './remote.js';
+import {loadNotificationsV13,socialAction,loadCommunity,createPost,updateProfileServer,createCommentServer,deleteCommentServer,followServer,voteServer,moderatePostServer,resolvePostServer,uploadDataImage,removeImageServer} from './remote.js';
 
 import {selectTrends, avatarInitial, authorByline} from './community-v12.js';
 import {installColorPicker,selectFollowing} from './community-v13.js';
@@ -63,13 +63,13 @@ async function refreshCommunity({quiet=false}={}){
   rememberCurrentPerson();
   $('#sidebar-avatar').innerHTML=localProfile.avatar?`<img src="${esc(localProfile.avatar)}" alt="">`:'◎';
   render();
- }catch(error){communityReady=false;communityError=error.message||'No fue posible cargar la comunidad.';
-  if(!quiet)showToast('No se cargaron los datos reales. Revisa la migración SQL v1.0 y tu conexión a Supabase.');
+ }catch(error){if(currentPersonId()!==requestedUserId||guestMode!==requestedGuest)return;communityReady=false;communityError=error.message||'No fue posible cargar la comunidad.';
+  if(!quiet)showToast('No se cargaron los datos. Revisa la migración v1.3 y la conexión a Supabase.');
   render();
  }finally{loadingCommunity=false;if((currentPersonId()!==requestedUserId||guestMode!==requestedGuest)&&(currentPersonId()||guestMode))void refreshCommunity({quiet:true});}
 }
 async function requireCommunity(){
- if(!communityReady)throw Error('La comunidad no está conectada. Ejecuta supabase/upgrade_v10.sql en tu proyecto y vuelve a entrar.');
+ if(!communityReady)throw Error('La comunidad no está conectada. Verifica la migración v1.3 y vuelve a entrar.');
 }
 async function voteOn(item){
  if(!currentPersonId())return notSignedIn();
@@ -418,6 +418,7 @@ function card(item){
       <button type="button" class="post-action" data-open="${esc(item.id)}"><span aria-hidden="true">▤</span> Ver detalles</button>
       <button type="button" class="post-action" data-open="${esc(item.id)}">▤ ${countComments(item.id)} comentarios</button>
     </div>
+    ${v13PostActions(item)}
   </article>`;
 }
 function empty(title,desc,buttonText='',action=''){
@@ -442,7 +443,7 @@ function setView(next){
   view=next; selectedId=null;
   if(next==='mi-cuenta')profileId=currentPersonId();
   document.querySelectorAll('.side-link[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===next));
-  if(['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias'].includes(next)) { render(); return; }
+  if(['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias'].includes(next)) { render(); if(['guardados','notificaciones','denuncias'].includes(next))void refreshCommunity({quiet:true}); return; }
   const headings={explorar:['PUBLICACIONES DE LA COMUNIDAD','El muro de Mazatlán'], moderacion:role==='lector'?['PANEL DE REVISIÓN','Reportes por revisar']:['PANEL EDITORIAL','Revisión pendiente']};
   $('.mini-eyebrow').textContent=headings[next][0];
   $('#feed-title').textContent=headings[next][1];
@@ -1127,7 +1128,7 @@ void initializeAuth(onIdentityChange);
 
 function v13Button(kind,id,label){return '<button type="button" class="v13-panel-button" data-v13="'+esc(kind)+'" data-v13-id="'+esc(id||'')+'">'+esc(label)+'</button>';}
 function v13PostActions(item){return '<div class="v13-actions">'+(item.review==='approved'?v13Button('share',item.id,'Compartir')+v13Button('save',item.id,socialState.saved.includes(item.id)?'Quitar de guardados':'Guardar')+v13Button('flag-post',item.id,'Denunciar'):'')+(ownPost(item)?(item.type!=='news'?v13Button('edit-post',item.id,'Editar'):'')+v13Button('delete-post',item.id,'Eliminar'):'')+'</div>';}
-function v13CommentActions(c,rows){const parent=rows.find(r=>r.id===c.parentId),votes=socialState.commentVotes.filter(v=>v.comment_id===c.id);return (parent?'<small class="comment-reply-note">En respuesta a @'+esc(personFor(parent.authorId)?.username||'usuario')+'</small>':'')+(c.editedAt?'<small> · Editado</small>':'')+'<div class="v13-actions">'+v13Button('reply',c.id,'Responder')+v13Button('vote-comment',c.id,'▲ '+votes.length)+v13Button('flag-comment',c.id,'Denunciar')+(c.authorId===currentPersonId()?v13Button('edit-comment',c.id,'Editar'):'')+'</div>';}
+function v13CommentActions(c,rows){const parent=rows.find(r=>r.id===c.parentId),votes=socialState.commentVotes.filter(v=>v.comment_id===c.id);return (parent?'<small class="comment-reply-note">En respuesta a @'+esc(personFor(parent.authorId)?.username||'usuario')+'</small>':'')+(c.editedAt?'<small> · Editado</small>':'')+'<div class="v13-actions">'+v13Button('reply',c.id,'Responder')+v13Button('vote-comment',c.id,guestMode?'Votar':'▲ '+votes.length)+v13Button('flag-comment',c.id,'Denunciar')+(c.authorId===currentPersonId()?v13Button('edit-comment',c.id,'Editar'):'')+'</div>';}
 const notificationText={approved:'Tu publicación fue aprobada',rejected:'Tu publicación fue rechazada',follow:'Tienes un nuevo seguidor',comment:'Comentaron tu publicación',reply:'Respondieron a tu comentario',mention:'Te mencionaron en un comentario'};
 function renderV13Panel(){const p=$('#v13-panel');let body='';
  if(view==='guardados'){body='<h2>Publicaciones guardadas</h2>'+items.filter(i=>socialState.saved.includes(i.id)&&i.review==='approved').map(i=>'<div class="v13-panel-row">'+esc(i.title)+' '+v13Button('open',i.id,'Ver publicación')+v13Button('save',i.id,'Quitar')+'</div>').join('');}
@@ -1146,7 +1147,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-v13]
  if(kind==='save')extra=socialState.saved.includes(id);
  if(kind==='vote-comment')extra=socialState.commentVotes.some(v=>v.comment_id===id&&v.user_id===currentPersonId());
  if(kind.startsWith('flag-')){const f=await promptV13('Denunciar contenido',[{name:'reason',label:'Motivo',options:['spam','informacion falsa','acoso','inapropiado','otro']}]);if(!f)return;extra=f.reason;}
- if(kind==='edit-post'){const p=items.find(i=>i.id===id);if(!p)return;const f=await promptV13('Editar y enviar a revisión',[{name:'title',label:'Título',value:p.title,max:110,required:true},{name:'description',label:'Descripción',value:p.description,max:800,multiline:true}]);if(!f)return;extra={title:f.title.trim(),description:f.description.trim()};if(extra.title.length<3)throw Error('Título demasiado corto.');}
+ if(kind==='edit-post'){const p=items.find(i=>i.id===id);if(!p)return;const f=await promptV13('Editar y enviar a revisión',[{name:'title',label:'Título',value:p.title,max:110,required:true},{name:'description',label:'Descripción',value:p.description,max:800,multiline:true}]);if(!f)return;extra={title:f.title.trim(),description:f.description.trim()};if(extra.title===p.title&&extra.description===p.description)return;if(extra.title.length<3)throw Error('Título demasiado corto.');}
  if(kind==='edit-comment'){const c=commentsFor(selectedId).find(c=>c.id===id);if(!c)return;const f=await promptV13('Editar comentario',[{name:'body',label:'Comentario',value:c.text,max:500,multiline:true,required:true}]);if(!f)return;extra=f.body.trim();if(!extra)throw Error('Comentario vacío.');}
  if(kind==='delete-post'&&!confirm('¿Eliminar permanentemente esta publicación?'))return;
  await socialAction(kind,id,currentPersonId(),extra);if(kind==='delete-post')setView('explorar');await refreshCommunity({quiet:true});showToast('Cambios guardados.');
@@ -1155,3 +1156,11 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-v13]
 
 function v13MentionMarkup(value){return String(value||'').split(/(@[a-zA-Z0-9_.]{1,30})/g).map(part=>{if(!part.startsWith('@'))return esc(part);const id=localPersonIds().find(i=>personFor(i)?.username?.toLowerCase()===part.slice(1).toLowerCase());return id?'<button type="button" class="v13-mention" data-profile-id="'+esc(id)+'">'+esc(part)+'</button>':esc(part);}).join('');}
 if('serviceWorker' in navigator&&window.isSecureContext)window.addEventListener('load',()=>{navigator.serviceWorker.register('./service-worker.js').catch(()=>{});});
+
+let fetchingNotifications=false;
+async function refreshNotificationsV13(){
+ const user=currentPersonId();if(!user||fetchingNotifications||document.hidden)return;
+ fetchingNotifications=true;try{const rows=await loadNotificationsV13();if(currentPersonId()!==user)return;socialState.notifications=rows;$('#notification-count').textContent=rows.filter(n=>!n.read_at).length||'';if(view==='notificaciones')renderV13Panel();}catch{}finally{fetchingNotifications=false;}
+}
+setInterval(()=>{void refreshNotificationsV13();},30000);
+document.addEventListener('visibilitychange',()=>{void refreshNotificationsV13();});
