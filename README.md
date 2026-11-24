@@ -32,7 +32,7 @@ Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de m
 
 ## Historial de actualizaciones
 
-### v1.3 — Candidato en desarrollo (todavía no publicado)
+### v1.3 — Se agrego el usuario visitante y nuevas funciones
 
 - Acceso de solo lectura para visitantes. El registro por correo y contraseña se conserva; OAuth queda aplazado.
 - Notificaciones, guardados, compartir enlaces, denuncias y edición/eliminación de publicaciones propias.
