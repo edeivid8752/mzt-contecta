@@ -1,7 +1,7 @@
-name: Verificar MZT Conecta v1.3
+name: Verificar MZT Conecta
 on:
   push:
-    branches: [v1.3-ajustes]
+    branches: [v1.3-ajustes, v1.3.1]
   pull_request:
     branches: [main]
 permissions:
@@ -38,8 +38,10 @@ jobs:
           node --version
           node --experimental-default-type=module tests/v12.test.mjs
           node --experimental-default-type=module tests/v13.test.mjs
+          node --experimental-default-type=module tests/v131.test.mjs
       - name: Migración y permisos en base desechable
         env:
           PGPASSWORD: local_test_only
         run: |
           psql -h localhost -U postgres -d mzt_test -v ON_ERROR_STOP=1 -f MZT_Conecta_web_oficial/tests/v13-isolated.sql
+          psql -h localhost -U postgres -d mzt_test -v ON_ERROR_STOP=1 -f MZT_Conecta_web_oficial/tests/v131-isolated.sql
