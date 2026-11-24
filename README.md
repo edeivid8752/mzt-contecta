@@ -34,11 +34,11 @@ Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de m
 
 ### v1.3 — Candidato en desarrollo (todavía no publicado)
 
-- Acceso de solo lectura para visitantes y cinco proveedores OAuth (Google, Facebook, Apple, Discord y GitHub; activación pendiente).
+- Acceso de solo lectura para visitantes. El registro por correo y contraseña se conserva; OAuth queda aplazado.
 - Notificaciones, guardados, compartir enlaces, denuncias y edición/eliminación de publicaciones propias.
 - Respuestas, votos, edición y menciones en comentarios.
 - Aplicación web instalable, muro Explorar/Siguiendo y selector HSV.
-- Pendientes: pruebas integrales, migración aislada, credenciales OAuth, instalación PWA y autorización del despliegue.
+- Pendientes: pruebas integrales, migración aislada, instalación PWA y autorización del despliegue.
 
 ### v1.2 — Se corrigieron errores y agregaron funciones
 

@@ -37,6 +37,8 @@ ALTER TABLE public.mzt_comments ADD COLUMN IF NOT EXISTS edited_at timestamptz;
 ALTER TABLE public.mzt_comments ADD CONSTRAINT v13_comment_identity UNIQUE(id,post_id);
 ALTER TABLE public.mzt_comments ADD CONSTRAINT v13_comment_parent FOREIGN KEY(parent_id,post_id) REFERENCES public.mzt_comments(id,post_id) ON DELETE SET NULL (parent_id);
 ALTER TABLE public.mzt_comments ADD CONSTRAINT v13_comment_not_self CHECK(parent_id IS DISTINCT FROM id);
+REVOKE INSERT ON public.mzt_comments FROM authenticated;
+GRANT INSERT(post_id,user_id,body,parent_id) ON public.mzt_comments TO authenticated;
 GRANT UPDATE(body) ON public.mzt_comments TO authenticated;
 CREATE POLICY v13_comment_edit ON public.mzt_comments FOR UPDATE TO authenticated USING(user_id=(select auth.uid()) AND EXISTS(SELECT 1 FROM public.mzt_posts p WHERE p.id=post_id AND p.review='approved')) WITH CHECK(user_id=(select auth.uid()) AND EXISTS(SELECT 1 FROM public.mzt_posts p WHERE p.id=post_id AND p.review='approved'));
 CREATE OR REPLACE FUNCTION public.mzt_v13_comment_timestamp() RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $$ BEGIN NEW.edited_at=now(); RETURN NEW; END $$;
