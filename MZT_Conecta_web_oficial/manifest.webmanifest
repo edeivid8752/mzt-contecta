@@ -1,0 +1,20 @@
+{
+  "id": "./",
+  "name": "MZT Conecta",
+  "short_name": "MZT Conecta",
+  "description": "Porque lo que pasa en Mazatlán nos une",
+  "lang": "es-MX",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#faf5fb",
+  "theme_color": "#714383",
+  "icons": [
+    {
+      "src": "./assets/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
