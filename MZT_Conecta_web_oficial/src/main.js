@@ -172,7 +172,7 @@ function regionMatches(item){
 }
 function visibleForDay(){
   const q=search.toLocaleLowerCase('es').trim();
-  const source=feedMode==='siguiendo'&&currentPersonId()?selectFollowing(items,followingOf(currentPersonId()),authorIdFor):items;
+  const source=feedMode==='siguiendo'&&currentPersonId()?selectFollowing(items,[...new Set(items.map(authorIdFor))].filter(id=>isFollowing(currentPersonId(),id)),authorIdFor):items;
   const list=source.filter(i=>i.review==='approved'&&enabled.has(i.type)&&dateMatches(i)&&regionMatches(i)
     &&(!advanced.located||Boolean(i.coordinates)))
     .filter(i=>!q||[i.title,i.description,i.category,i.location].some(v=>String(v||'').toLocaleLowerCase('es').includes(q)));
