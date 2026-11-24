@@ -10,6 +10,8 @@ import {SUPABASE_URL} from './supabase-config.js';
 import {loadCommunity,createPost,updateProfileServer,createCommentServer,deleteCommentServer,followServer,voteServer,moderatePostServer,resolvePostServer,uploadDataImage,removeImageServer} from './remote.js';
 
 import {selectTrends, avatarInitial, authorByline} from './community-v12.js';
+import {installColorPicker,selectFollowing} from './community-v13.js';
+let feedMode='explorar';
 
 const $ = sel => document.querySelector(sel);
 let items = []; // Solo publicaciones de Supabase
@@ -170,7 +172,8 @@ function regionMatches(item){
 }
 function visibleForDay(){
   const q=search.toLocaleLowerCase('es').trim();
-  const list=items.filter(i=>i.review==='approved'&&enabled.has(i.type)&&dateMatches(i)&&regionMatches(i)
+  const source=feedMode==='siguiendo'&&currentPersonId()?selectFollowing(items,followingOf(currentPersonId()),authorIdFor):items;
+  const list=source.filter(i=>i.review==='approved'&&enabled.has(i.type)&&dateMatches(i)&&regionMatches(i)
     &&(!advanced.located||Boolean(i.coordinates)))
     .filter(i=>!q||[i.title,i.description,i.category,i.location].some(v=>String(v||'').toLocaleLowerCase('es').includes(q)));
   return list.sort((a,b)=>{
@@ -288,7 +291,7 @@ function renderAccount() {
     ['background','Fondo','Superficie general de la aplicación']
   ].map(([id,label,hint]) => `
     <label class="color-field"><span class="color-field-text"><strong>${label}</strong><small>${hint}</small></span>
-      <input type="color" name="${id}" value="${colors[id]}" aria-label="${label}">
+      <input type="hidden" name="${id}" value="${colors[id]}"><button type="button" class="hsv-swatch" data-hsv-pick="${id}" style="background-color:${colors[id]}" aria-label="Elegir color: ${label}"></button>
       <span class="color-hex" data-hex-for="${id}">${colors[id].toUpperCase()}</span>
     </label>`).join('');
   $('#account-panel').innerHTML = `
@@ -462,6 +465,8 @@ function render() {
   if(view==='mi-cuenta'){renderProfilePage();scheduleMapCards();return;}
   if(view==='personas'){renderPeoplePage();return;}
   if(view==='publicacion'){renderPostPage();scheduleMapCards();return;}
+  $('#feed-mode-tabs').hidden=view!=='explorar'||role==='visitante';
+  $('#feed-mode-tabs').querySelectorAll('[data-feed-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.feedMode===feedMode)));
   updateStats();
   renderTrends();
   syncAdvancedForm();
@@ -785,6 +790,7 @@ $('#account-panel').addEventListener('change', async e => {
   });
  }catch(error){showToast(error.message||'No se pudo editar la imagen.');}finally{input.value='';}
 });
+installColorPicker($('#account-panel'));
 $('#account-panel').addEventListener('submit', async e => {
   if (e.target.id === 'custom-theme-form') {
     e.preventDefault();
@@ -867,6 +873,7 @@ $('#sidebar-report').addEventListener('click',openReportForm);
 $('#composer-report').addEventListener('click',openReportForm);
 $('#composer-create').addEventListener('click',openReportForm);
 $('#refresh-now').addEventListener('click',()=>{void refreshCommunity();});
+$('#feed-mode-tabs').addEventListener('click',e=>{const b=e.target.closest('[data-feed-mode]');if(!b||!currentPersonId())return;feedMode=b.dataset.feedMode;render();});
 $('#trends-list').addEventListener('click',e=>{
   const b=e.target.closest('[data-trend-open]');if(!b)return;
   const item=items.find(i=>i.id===b.dataset.trendOpen);
@@ -1041,6 +1048,7 @@ function onIdentityChange(state) {
     void refreshCommunity();
     return;
   }
+  feedMode='explorar';
   currentIdentity=null;clearSocialSnapshot();communityReady=false;communityError='';items=[];
   role='visitante';
   localProfile={username:'',bio:'',avatar:null,cover:null};
