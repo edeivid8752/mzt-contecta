@@ -1,4 +1,4 @@
-// Capa de datos de MZT Conecta v1.0. Solo clave publicable, nunca service_role.
+// Capa de datos de MZT Conecta v1.2. Solo clave publicable, nunca service_role.
 import {getAuthClient} from './auth.js';
 const BUCKET='mzt-media';
 const fail=(r)=>{if(r.error)throw Error(r.error.message||'Error de Supabase');return r.data;};
@@ -13,15 +13,23 @@ export async function loadCommunity(){
   c.from('mzt_follows').select('follower_id,followed_id').limit(2000),
   c.from('mzt_votes').select('post_id,user_id').limit(2000)
  ]);
+ // Roles reales de autores de publicaciones visibles; se agrupan las consultas.
+ const postRows=fail(posts);
+ const authorIds=[...new Set(postRows.map(p=>p.user_id).filter(Boolean))];
+ const roleResults=[];
+ for(let i=0;i<authorIds.length;i+=100){
+  roleResults.push(c.from('app_roles').select('user_id,role').in('user_id',authorIds.slice(i,i+100)));
+ }
+ const roles=new Map((await Promise.all(roleResults)).flatMap(result=>fail(result)).map(row=>[row.user_id,row.role]));
  const localDate=t=>{const d=new Date(t);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
  const mapPost=p=>({id:p.id,type:p.type,title:p.title,description:p.description||'',category:p.category,location:p.location||'Toda la ciudad',
   coordinates:p.longitude==null||p.latitude==null?null:[p.longitude,p.latitude],day:localDate(p.created_at),
   clock:new Date(p.created_at).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false}),
   createdAt:p.created_at,review:p.review,reviewedAt:p.reviewed_at,approvedAt:p.approved_at,resolvedAt:p.resolved_at,
   rejectionReason:p.rejection_reason,image:p.photo_url,sourceName:p.source_name,sourceUrl:p.source_url,
-  owner:'remote',ownerUserId:p.user_id});
+  owner:'remote',ownerUserId:p.user_id,authorRole:roles.get(p.user_id)||null});
  return {people:fail(profiles).map(p=>({id:p.id,name:p.display_name,username:p.username,bio:p.bio||'',avatar:p.avatar_url,cover:p.cover_url})),
-  items:fail(posts).map(mapPost),comments:fail(comments).map(c=>({id:c.id,postId:c.post_id,authorId:c.user_id,text:c.body,createdAt:c.created_at})),
+  items:postRows.map(mapPost),comments:fail(comments).map(c=>({id:c.id,postId:c.post_id,authorId:c.user_id,text:c.body,createdAt:c.created_at})),
   follows:fail(follows).map(f=>({from:f.follower_id,to:f.followed_id})),votes:fail(votes).map(v=>({postId:v.post_id,userId:v.user_id}))};
 }
 export async function createPost(input){const c=await client();return fail(await c.from('mzt_posts').insert(input).select('id').single());}

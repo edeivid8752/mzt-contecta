@@ -32,6 +32,13 @@ Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de m
 
 ## Historial de actualizaciones
 
+### v1.2 — En preparación (todavía no publicada)
+
+- Se muestra el rol real de los autores de las publicaciones: Editor, Lector o Ciudadano.
+- El cuadro de publicación muestra el avatar de la cuenta conectada, con una inicial cuando no hay foto.
+- Tendencias muestra las cinco publicaciones aprobadas más votadas de los últimos siete días (168 horas), sin eliminar publicaciones, votos o comentarios.
+- Actividad del día conserva su funcionamiento anterior.
+
 ### v1.1 — Versión oficial y lanzamiento público
 
 - **Lanzamiento en Internet:** publicación mediante Render en **[mztconecta.com](https://mztconecta.com)**, con dominio propio y conexión HTTPS.
