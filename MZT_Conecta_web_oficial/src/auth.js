@@ -33,6 +33,17 @@ export async function refreshIdentity(event = '') {
     const client = await connection();
     if (!client) { listener({status: 'unconfigured'}); return; }
     // getUser comprueba la identidad en Auth y no se basa solo en un token local.
+    const {data: sessionData, error: sessionError} =
+    await client.auth.getSession();
+
+    if (sessionError) throw sessionError;
+
+  if (!sessionData?.session) {
+  if (seq === generation) {
+    listener({status: 'signed_out'});
+  }
+  return;
+  }
     const {data: userData, error: userError} = await client.auth.getUser();
     if (userError) throw userError;
     const user = userData?.user;
