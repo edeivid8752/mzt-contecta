@@ -9,6 +9,8 @@ import {authorIdFor,personFor,syncPerson,followersOf,followingOf,isFollowing,com
 import {SUPABASE_URL} from './supabase-config.js';
 import {loadCommunity,createPost,updateProfileServer,createCommentServer,deleteCommentServer,followServer,voteServer,moderatePostServer,resolvePostServer,uploadDataImage,removeImageServer} from './remote.js';
 
+import {selectTrends, avatarInitial, authorByline} from './community-v12.js';
+
 const $ = sel => document.querySelector(sel);
 let items = []; // Solo publicaciones de Supabase
 let communityReady=false;
@@ -102,6 +104,17 @@ function avatarMarkup(name, className='profile-avatar') {
 function personAvatar(person,sizeClass='person-avatar'){
   const avatar=imageURL(person?.avatar);
   return `<span class="${sizeClass}">${avatar?`<img src="${esc(avatar)}" alt="Foto de ${esc(person.name)}">`:esc(String(person?.name||'M').charAt(0).toUpperCase())}</span>`;
+}
+function updateComposerAvatar(){
+  const el=$('#composer-avatar');
+  const name=currentIdentity?.profile?.display_name||'Usuario';
+  const url=imageURL(localProfile.avatar);
+  el.innerHTML=url?`<img src="${esc(url)}" alt="">`:esc(avatarInitial(name));
+}
+function postAuthorByline(item){
+  const own=ownPost(item);
+  const username=own?localProfile.username:personFor(authorIdFor(item))?.username;
+  return authorByline(username,item.authorRole||(own?currentIdentity?.role:null));
 }
 function currentPersonId(){return currentIdentity?.user?.id||'';}
 function currentPerson(){return personFor(currentPersonId())||{id:currentPersonId(),name:currentIdentity?.profile?.display_name||'Mi perfil',username:localProfile.username,bio:localProfile.bio,avatar:localProfile.avatar,cover:localProfile.cover};}
@@ -246,17 +259,14 @@ function voteCount(item) {
   return voteCountFor(item.id);
 }
 function renderTrends(){
-  // La tabla no usa filtros de búsqueda: son los artículos aprobados más votados.
-  const approved=items.filter(i=>i.review==='approved');
-  const candidates=approved
-    .sort((a,b)=>voteCount(b)-voteCount(a) || String(b.createdAt||'').localeCompare(String(a.createdAt||'')))
-    .slice(0,5);
+  // Ventana móvil de 168 horas desde la creación, independiente de los filtros del muro.
+  const candidates=selectTrends(items,voteCount);
   $('#trends-list').innerHTML=candidates.length ? candidates.map((item,index)=>`
     <button type="button" class="trend-item" data-trend-open="${esc(item.id)}" aria-label="Abrir publicación: ${esc(item.title)}">
       <span class="trend-rank">${index+1}</span>
       <span class="trend-copy"><strong>${esc(short(item.title,68))}</strong><small>${esc(typeLabel(item))}</small></span>
       <span class="trend-votes" aria-label="${voteCount(item)} votos"><span aria-hidden="true">▲</span>${voteCount(item)}</span>
-    </button>`).join('') : '<p class="trends-empty">Todavía no hay publicaciones aprobadas.</p>';
+    </button>`).join('') : '<p class="trends-empty">Todavía no hay publicaciones aprobadas de los últimos 7 días.</p>';
 }
 function renderAccount() {
   const picked = themeSelection();
@@ -360,7 +370,7 @@ function renderPostPage(){
     :role==='editor'&&item.type==='infrastructure'&&item.review==='approved'&&!item.resolvedAt?`<div class="post-moderation"><strong>Seguimiento</strong><button type="button" data-resolve="${esc(item.id)}">Marcar como atendido</button></div>`:'';
   $('#post-page').innerHTML=`<div class="social-back-row"><button class="back-link" type="button" data-action="back-post">‹ Volver a las publicaciones</button><span>PUBLICACIÓN</span></div>
     <article class="social-post-detail">
-      <div class="post-detail-author"><button type="button" class="person-inline" data-profile-id="${esc(person.id)}">${personAvatar(person)}<span><strong>${esc(person.name)}</strong><small>@${esc(person.username)}</small></span></button><span class="post-detail-time">${esc(item.day)} · ${esc(item.clock)}</span></div>
+      <div class="post-detail-author"><button type="button" class="person-inline" data-profile-id="${esc(person.id)}">${personAvatar(person)}<span><strong>${esc(person.name)}</strong><small>${esc(postAuthorByline(item))}</small></span></button><span class="post-detail-time">${esc(item.day)} · ${esc(item.clock)}</span></div>
       <div class="post-detail-content"><span class="type-tag ${esc(item.type)}">${esc(typeLabel(item))}</span>${item.category?`<span class="post-topic">${esc(item.category)}</span>`:''}
         <h1>${esc(item.title)}</h1>${item.description?`<p class="post-detail-description">${esc(item.description)}</p>`:''}
         ${imageURL(item.image)?`<img class="post-detail-image" src="${esc(imageURL(item.image))}" alt="Imagen de la publicación">`:''}
@@ -380,12 +390,11 @@ function card(item){
   const typeClass=esc(item.type);
   const isOwn=ownPost(item);
   const author=item.owner==='remote' ? (isOwn ? (currentIdentity?.profile?.display_name || 'Tú') : (personFor(item.ownerUserId)?.name||'Persona de la comunidad')) : item.type==='news' ? (item.sourceName||'MZT Noticias') : 'Comunidad de Mazatlán';
-  const authorTag=item.type==='news' ? 'Medio / fuente' : 'Reporte ciudadano · No oficial';
   const voted=helpfulVotes.has(item.id);
   const image=imageURL(item.image)?`<img class="post-image" src="${esc(imageURL(item.image))}" alt="Imagen del reporte ciudadano" loading="lazy">`:'';
   const socialAuthor=personFor(authorIdFor(item))||{id:authorIdFor(item),name:author,username:'comunidad_mzt'};
   return `<article class="event-card ${selectedId===item.id?'selected':''}" data-post-id="${esc(item.id)}">
-    <div class="post-byline"><button type="button" class="person-inline" data-profile-id="${esc(socialAuthor.id)}">${personAvatar(socialAuthor,'post-avatar')}<span class="post-author-block"><strong>${esc(isOwn?author:socialAuthor.name)}</strong><small>${esc(isOwn?'@'+localProfile.username+' · cuenta real':authorTag)}</small></span></button><span class="post-age">${esc(item.clock||'')}</span></div>
+    <div class="post-byline"><button type="button" class="person-inline" data-profile-id="${esc(socialAuthor.id)}">${personAvatar(socialAuthor,'post-avatar')}<span class="post-author-block"><strong>${esc(isOwn?author:socialAuthor.name)}</strong><small>${esc(postAuthorByline(item))}</small></span></button><span class="post-age">${esc(item.clock||'')}</span></div>
     <button type="button" class="post-open" data-open="${esc(item.id)}" aria-label="Ver publicación: ${esc(item.title)}">
       <div class="post-tags"><span class="type-tag ${typeClass}${item.resolvedAt?' resolved':''}"><span class="type-symbol symbol-${typeClass}"></span>${esc(typeLabel(item))}</span>${item.category?`<span class="post-topic">${esc(item.category)}</span>`:''}</div>
       <h3>${esc(item.title)}</h3>
@@ -437,6 +446,7 @@ function setView(next){
   render();
 }
 function render() {
+  updateComposerAvatar();
   if(!canOpenView(view)) view='explorar';
   updateNavigation();
   document.querySelectorAll('.side-link[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
@@ -660,10 +670,15 @@ async function handleNewsSubmit(event){
 }
 async function handleRejectSubmit(event){
  event.preventDefault();if(role!=='editor')return;
- const id=event.currentTarget.dataset.itemId,reason=$('#reject-reason').value.trim();
- if(reason.length<8)return showToast('Explica el motivo del rechazo.');
+ const form=event.target,id=form.dataset.itemId,reason=form.querySelector('#reject-reason').value.trim();
+ if(!id||!items.some(item=>item.id===id&&['pending','reviewed'].includes(item.review)))return showToast('Selecciona nuevamente la publicación que deseas rechazar.');
+ if(reason.length<8||reason.length>300)return showToast('Explica el motivo del rechazo (8 a 300 caracteres).');
+ const submit=form.querySelector('[type=submit]');
+ if(submit.disabled)return;
+ submit.disabled=true;
  try{await requireCommunity();await moderatePostServer(id,'rejected',reason);closeDrawer();await refreshCommunity();showToast('Reporte rechazado.');}
  catch(error){showToast(error.message||'No se pudo rechazar el reporte.');}
+ finally{if(submit.isConnected)submit.disabled=false;}
 }
 function closePicker(){
   if($('#picker-overlay').hidden) return;
@@ -723,7 +738,7 @@ $('#account-panel').addEventListener('click', e => {
     void(async()=>{try{await requireCommunity();const old=localProfile[kind];
       await updateProfileServer(currentPersonId(),{[kind+'_url']:null});
       localProfile={...localProfile,[kind]:null};rememberCurrentPerson();
-      if(kind==='avatar')$('#sidebar-avatar').textContent='◎';
+      if(kind==='avatar'){$('#sidebar-avatar').textContent='◎';updateComposerAvatar();}
       renderAccount();await removeImageServer(old).catch(()=>{});showToast('Imagen retirada de tu perfil público.');
     }catch(error){showToast(error.message||'No se pudo retirar la imagen.');}})();return;
   }
@@ -763,7 +778,7 @@ $('#account-panel').addEventListener('change', async e => {
    try{const old=localProfile[kind];const url=await uploadDataImage(currentPersonId(),image);
     await updateProfileServer(currentPersonId(),{[kind+'_url']:url});
     localProfile={...localProfile,[kind]:url};rememberCurrentPerson();
-    if(kind==='avatar')$('#sidebar-avatar').innerHTML=`<img src="${esc(url)}" alt="">`;
+    if(kind==='avatar'){$('#sidebar-avatar').innerHTML=`<img src="${esc(url)}" alt="">`;updateComposerAvatar();}
     renderAccount();await removeImageServer(old).catch(()=>{});
     showToast('Fotografía guardada en tu perfil público con el encuadre elegido.');
    }catch(error){showToast(error.message||'No se pudo guardar la imagen en Supabase.');}
@@ -798,7 +813,7 @@ $('#account-panel').addEventListener('submit', async e => {
       const profile=await updateProfileServer(currentPersonId(),{display_name:name,username,bio});
       currentIdentity={...currentIdentity,profile:{...currentIdentity.profile,display_name:profile.display_name}};
       localProfile={...localProfile,username:profile.username,bio:profile.bio};rememberCurrentPerson();
-      renderAccount();showToast('Perfil actualizado en Supabase para toda la comunidad.');
+      updateComposerAvatar();renderAccount();showToast('Perfil actualizado en Supabase para toda la comunidad.');
     } catch(error) {showToast(error.message||'No se pudo guardar el perfil. Inténtalo de nuevo.');}
     finally {if(button.isConnected)button.disabled=false;}
   }
@@ -1029,6 +1044,7 @@ function onIdentityChange(state) {
   currentIdentity=null;clearSocialSnapshot();communityReady=false;communityError='';items=[];
   role='visitante';
   localProfile={username:'',bio:'',avatar:null,cover:null};
+  updateComposerAvatar();
   closePublicProfile();
   closeDrawer();
   closePicker();

@@ -12,3 +12,14 @@ Esta es una copia local de v1.1 sin publicaciones ni perfiles simulados, destina
 - No se ejecutó ningún borrado de usuarios, imágenes ni información en Supabase.
 
 **No publiques este paquete todavía:** antes hay que respaldar la base y el almacenamiento, retirar datos de prueba y verificar permisos y autenticación para usuarios nuevos.
+
+## Actualización v1.2 en preparación
+
+## Novedades de la versión 1.2 (en preparación)
+
+- Las publicaciones muestran el rol real del autor (Editor, Lector o Ciudadano).
+- El cuadro de publicación muestra la foto de perfil de la cuenta conectada, o una inicial si no tiene foto.
+- Tendencias conserva las cinco publicaciones aprobadas más votadas de las últimas 168 horas, sin eliminar publicaciones ni interacciones.
+- Actividad del día mantiene exactamente las reglas de v1.1.
+
+La política `supabase/upgrade_v12.sql` queda pendiente de aplicación y verificación. No se ha ejecutado ninguna modificación en producción.

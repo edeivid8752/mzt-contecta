@@ -29,6 +29,7 @@
 .feed-panel { background:transparent; border:0; box-shadow:none; border-radius:0; overflow:visible; min-height:0; display:flex; flex-direction:column; }
 .compose-strip { display:flex; align-items:center; gap:12px; padding:14px 16px; border:1px solid #e4edf2; border-radius:16px; background:#fff; margin-bottom:15px; box-shadow:0 3px 18px rgba(10,56,85,.035); }
 .compose-avatar { flex:none; display:grid; place-items:center; width:42px; height:42px; border-radius:50%; border:1px solid #dbecf4; background:#f4fbfd; overflow:hidden; }
+.compose-avatar { color:var(--skin-primary); font-weight:800; font-size:18px; }
 .compose-avatar img { width:42px; height:42px; object-fit:cover; }
 .compose-prompt { background:#f6f9fb; border:1px solid #e6edf2; border-radius:100px; padding:13px 19px; color:#8a9cad; text-align:left; flex:1; font-size:12px; min-width:0; }
 .compose-prompt:hover { color:#426a80; background:#eff7fa; }

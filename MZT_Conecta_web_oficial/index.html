@@ -88,7 +88,7 @@
         <p>Infórmate, comparte y ayuda a tu comunidad.</p>
       </div>
       <button type="button" id="sign-out" class="side-link subtle sign-out-side"><span class="nav-ico">⇥</span><span>Cerrar sesión</span></button>
-      <div class="sidebar-bottom"><span class="mini-live"></span> COMUNIDAD DE MAZATLÁN <span>V 1.1</span></div>
+      <div class="sidebar-bottom"><span class="mini-live"></span> COMUNIDAD DE MAZATLÁN <span>V 1.2</span></div>
     </aside>
 
     <main class="main-area">
@@ -116,7 +116,7 @@
         <div class="social-layout">
           <section class="feed-panel" aria-labelledby="feed-title">
             <div class="compose-strip">
-              <span class="compose-avatar"><img src="./assets/isotipo.png" alt=""></span>
+              <span class="compose-avatar" id="composer-avatar" aria-hidden="true">U</span>
               <button id="composer-report" type="button" class="compose-prompt">¿Qué está pasando en tu colonia?</button>
               <button id="composer-create" type="button" class="compose-button">＋ Publicar reporte</button>
             </div>
@@ -152,9 +152,9 @@
           <aside class="right-rail" aria-label="Información de MZT Conecta">
             <section class="trends-card" aria-labelledby="trends-title">
               <div class="trends-heading"><span class="trends-icon" aria-hidden="true">↗</span><div><span class="rail-eyebrow">LO MÁS DESTACADO</span><h2 id="trends-title">Tendencias</h2></div></div>
-              <p class="trends-intro">Las publicaciones más votadas por la comunidad.</p>
+              <p class="trends-intro">Las publicaciones más votadas de los últimos 7 días.</p>
               <div id="trends-list" class="trends-list" aria-live="polite"></div>
-              <p class="trends-note">Votos registrados por la comunidad. Usa Actualizar para consultar novedades.</p>
+              <p class="trends-note">Las publicaciones salen de Tendencias al cumplir 7 días. Usa Actualizar para consultar novedades.</p>
             </section>
             <section class="stats-strip" id="stats-strip" aria-label="Resumen de actividad comunitaria">
               <div class="rail-section-head"><h3>Actividad del día</h3><span>EN EL MURO</span></div>
