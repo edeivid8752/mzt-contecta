@@ -2,7 +2,7 @@ import {CATEGORY_OPTIONS, PLACES, TYPE_INFO, dateISO, offsetDate} from './data.j
 import {initMap, setMapItems, focusMapItem, resizeMap, setRegionData, setSelectedRegion, refreshEmbeddedMaps, destroyEmbeddedMaps, createLocationPreview, destroyLocationPreview, createPickerMap, destroyPickerMap} from './map.js';
 import {loadBundledRegions,setRegions,regionNames,pointInRegion,matchingRegion} from './regions.js';
 import {THEMES, themeSelection, activePalette, applyTheme, choosePreset, chooseCustom, restoreDefault} from './theme.js';
-import {initializeAuth, refreshIdentity, createAccount, loginAccount, logoutAccount, requestPasswordReset, changePassword,loginOAuth} from './auth.js';
+import {initializeAuth, refreshIdentity, createAccount, loginAccount, logoutAccount, requestPasswordReset, changePassword} from './auth.js';
 import {loadLocalProfile, normalizeUsername, validUsername} from './profile.js';
 import {editImage,closeCrop} from './crop.js';
 import {authorIdFor,personFor,syncPerson,followersOf,followingOf,isFollowing,commentsFor,countComments,localPersonIds,setSocialSnapshot,clearSocialSnapshot,voteCountFor} from './social.js';
@@ -1084,7 +1084,7 @@ function onIdentityChange(state) {
 }
 function enterVisitor(){guestMode=true;currentIdentity=null;role='visitante';view='explorar';$('#auth-gate').hidden=true;$('.app-shell').hidden=false;render();ensureMap();void refreshCommunity();}
 $('#guest-enter').addEventListener('click',enterVisitor);
-for(const button of document.querySelectorAll('[data-oauth]'))button.addEventListener('click',async()=>{button.disabled=true;try{await loginOAuth(button.dataset.oauth);}catch(error){setAuthFeedback(error.message,true);}finally{button.disabled=false;}});
+
 document.querySelectorAll('[data-auth-view]').forEach(button => button.addEventListener('click',()=>setAuthView(button.dataset.authView)));
 for(const form of document.querySelectorAll('#auth-gate .auth-form')) {
   form.addEventListener('submit',async event=>{
