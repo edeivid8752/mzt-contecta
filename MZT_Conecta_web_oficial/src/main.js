@@ -2,14 +2,17 @@ import {CATEGORY_OPTIONS, PLACES, TYPE_INFO, dateISO, offsetDate} from './data.j
 import {initMap, setMapItems, focusMapItem, resizeMap, setRegionData, setSelectedRegion, refreshEmbeddedMaps, destroyEmbeddedMaps, createLocationPreview, destroyLocationPreview, createPickerMap, destroyPickerMap} from './map.js';
 import {loadBundledRegions,setRegions,regionNames,pointInRegion,matchingRegion} from './regions.js';
 import {THEMES, themeSelection, activePalette, applyTheme, choosePreset, chooseCustom, restoreDefault} from './theme.js';
-import {initializeAuth, refreshIdentity, createAccount, loginAccount, logoutAccount, requestPasswordReset, changePassword} from './auth.js';
+import {initializeAuth, refreshIdentity, createAccount, loginAccount, logoutAccount, requestPasswordReset, changePassword,loginOAuth} from './auth.js';
 import {loadLocalProfile, normalizeUsername, validUsername} from './profile.js';
 import {editImage,closeCrop} from './crop.js';
 import {authorIdFor,personFor,syncPerson,followersOf,followingOf,isFollowing,commentsFor,countComments,localPersonIds,setSocialSnapshot,clearSocialSnapshot,voteCountFor} from './social.js';
 import {SUPABASE_URL} from './supabase-config.js';
-import {loadCommunity,createPost,updateProfileServer,createCommentServer,deleteCommentServer,followServer,voteServer,moderatePostServer,resolvePostServer,uploadDataImage,removeImageServer} from './remote.js';
+import {loadNotificationsV13,socialAction,loadCommunity,createPost,updateProfileServer,createCommentServer,deleteCommentServer,followServer,voteServer,moderatePostServer,resolvePostServer,uploadDataImage,removeImageServer} from './remote.js';
 
 import {selectTrends, avatarInitial, authorByline} from './community-v12.js';
+import {installColorPicker,selectFollowing} from './community-v13.js';
+let feedMode='explorar',guestMode=false,replyId=null,socialState={saved:[],notifications:[],flags:[],commentVotes:[]};
+let sharedId=new URLSearchParams(location.search).get('post');
 
 const $ = sel => document.querySelector(sel);
 let items = []; // Solo publicaciones de Supabase
@@ -44,29 +47,32 @@ let helpfulVotes = new Set();
 async function refreshCommunity({quiet=false}={}){
  if(loadingCommunity)return;
  loadingCommunity=true;
- const requestedUserId=currentPersonId();
+ const requestedUserId=currentPersonId(),requestedGuest=guestMode;
  try{
-  const snapshot=await loadCommunity();
-  if(currentPersonId()!==requestedUserId)return;
-  setSocialSnapshot(snapshot);
+  const snapshot=await loadCommunity(guestMode);
+  if(currentPersonId()!==requestedUserId||guestMode!==requestedGuest)return;
+  setSocialSnapshot(snapshot);socialState=snapshot;
+  $('#notification-count').textContent=snapshot.notifications.filter(n=>!n.read_at).length||'';
   items=snapshot.items;
   const me=snapshot.people.find(p=>p.id===currentPersonId());
   if(me){localProfile={username:me.username,bio:me.bio||'',avatar:me.avatar||null,cover:me.cover||null};
    currentIdentity.profile={...currentIdentity.profile,display_name:me.name};}
   helpfulVotes=new Set(snapshot.votes.filter(v=>v.userId===currentPersonId()).map(v=>v.postId));
   communityReady=true;communityError='';
+  if(sharedId){const target=items.find(i=>i.id===sharedId);sharedId=null;if(target){selectedId=target.id;view='publicacion';}else showToast('Publicación no disponible.');}
   rememberCurrentPerson();
   $('#sidebar-avatar').innerHTML=localProfile.avatar?`<img src="${esc(localProfile.avatar)}" alt="">`:'◎';
   render();
- }catch(error){communityReady=false;communityError=error.message||'No fue posible cargar la comunidad.';
-  if(!quiet)showToast('No se cargaron los datos reales. Revisa la migración SQL v1.0 y tu conexión a Supabase.');
+ }catch(error){if(currentPersonId()!==requestedUserId||guestMode!==requestedGuest)return;communityReady=false;communityError=error.message||'No fue posible cargar la comunidad.';
+  if(!quiet)showToast('No se cargaron los datos. Revisa la migración v1.3 y la conexión a Supabase.');
   render();
- }finally{loadingCommunity=false;}
+ }finally{loadingCommunity=false;if((currentPersonId()!==requestedUserId||guestMode!==requestedGuest)&&(currentPersonId()||guestMode))void refreshCommunity({quiet:true});}
 }
 async function requireCommunity(){
- if(!communityReady)throw Error('La comunidad no está conectada. Ejecuta supabase/upgrade_v10.sql en tu proyecto y vuelve a entrar.');
+ if(!communityReady)throw Error('La comunidad no está conectada. Verifica la migración v1.3 y vuelve a entrar.');
 }
 async function voteOn(item){
+ if(!currentPersonId())return notSignedIn();
  try{await requireCommunity();await voteServer(item.id,currentPersonId(),helpfulVotes.has(item.id));await refreshCommunity({quiet:true});}
  catch(error){showToast(error.message||'No se pudo guardar el voto.');}
 }
@@ -120,6 +126,7 @@ function currentPersonId(){return currentIdentity?.user?.id||'';}
 function currentPerson(){return personFor(currentPersonId())||{id:currentPersonId(),name:currentIdentity?.profile?.display_name||'Mi perfil',username:localProfile.username,bio:localProfile.bio,avatar:localProfile.avatar,cover:localProfile.cover};}
 function rememberCurrentPerson(){if(currentIdentity?.user?.id)syncPerson(currentIdentity.user.id,currentIdentity.profile?.display_name||'Mi perfil',localProfile);}
 function openProfile(id){
+ if(!currentPersonId())return notSignedIn();
   closeExpandedMap();
   if(!id||!personFor(id))return showToast('No encontramos ese perfil en la comunidad.');
   profileReturnView=['explorar','moderacion','personas','mi-cuenta','publicacion'].includes(view)?view:'explorar';
@@ -130,6 +137,7 @@ function openPost(item){
   closeExpandedMap();
   if(!item)return;
   if(view!=='publicacion')postReturnView=view;
+  replyId=null;
   selectedId=item.id;view='publicacion';render();
   $('.main-area').scrollTo({top:0,behavior:'smooth'});
 }
@@ -170,7 +178,8 @@ function regionMatches(item){
 }
 function visibleForDay(){
   const q=search.toLocaleLowerCase('es').trim();
-  const list=items.filter(i=>i.review==='approved'&&enabled.has(i.type)&&dateMatches(i)&&regionMatches(i)
+  const source=feedMode==='siguiendo'&&currentPersonId()?selectFollowing(items,[...new Set(items.map(authorIdFor))].filter(id=>isFollowing(currentPersonId(),id)),authorIdFor):items;
+  const list=source.filter(i=>i.review==='approved'&&enabled.has(i.type)&&dateMatches(i)&&regionMatches(i)
     &&(!advanced.located||Boolean(i.coordinates)))
     .filter(i=>!q||[i.title,i.description,i.category,i.location].some(v=>String(v||'').toLocaleLowerCase('es').includes(q)));
   return list.sort((a,b)=>{
@@ -288,7 +297,7 @@ function renderAccount() {
     ['background','Fondo','Superficie general de la aplicación']
   ].map(([id,label,hint]) => `
     <label class="color-field"><span class="color-field-text"><strong>${label}</strong><small>${hint}</small></span>
-      <input type="color" name="${id}" value="${colors[id]}" aria-label="${label}">
+      <input type="hidden" name="${id}" value="${colors[id]}"><button type="button" class="hsv-swatch" data-hsv-pick="${id}" style="background-color:${colors[id]}" aria-label="Elegir color: ${label}"></button>
       <span class="color-hex" data-hex-for="${id}">${colors[id].toUpperCase()}</span>
     </label>`).join('');
   $('#account-panel').innerHTML = `
@@ -380,9 +389,10 @@ function renderPostPage(){
       </div>
       <div class="post-detail-actions"><button type="button" data-action="helpful" class="${helpfulVotes.has(item.id)?'voted':''}" aria-pressed="${helpfulVotes.has(item.id)}">▲ ${voteCount(item)} · Me sirve</button><span>▤ ${rows.length} comentarios</span>${ownAuthor?'<span>Tu publicación</span>':''}</div>
       ${moderation}
+      ${v13PostActions(item)}
       <section class="post-comments" aria-labelledby="comments-heading"><div class="comment-heading"><h2 id="comments-heading">Comentarios</h2><span>${rows.length}</span></div>
-        ${item.review!=='approved'?'<p class="social-local-note">Podrás comentar cuando un editor apruebe la publicación.</p>':'<form id="comment-form"><label for="comment-body" class="sr-only">Escribe un comentario</label><textarea id="comment-body" required minlength="1" maxlength="500" rows="3" placeholder="Escribe un comentario respetuoso…"></textarea><div><small>Máximo 500 caracteres · Comentario público</small><button type="submit" class="social-button">Comentar</button></div></form>'}
-        <div class="comment-list">${rows.length?rows.map(c=>{const author=personFor(c.authorId)||{id:c.authorId,name:'Usuario',username:'ciudadano'};return `<article class="comment-item"><button type="button" class="person-inline" data-profile-id="${esc(author.id)}">${personAvatar(author)}<span><strong>${esc(author.name)}</strong><small>@${esc(author.username)} · ${esc(new Date(c.createdAt).toLocaleString('es-MX'))}</small></span></button><p>${esc(c.text)}</p>${(c.authorId===currentPersonId()||role==='editor')?`<button class="delete-comment" type="button" data-delete-comment="${esc(c.id)}">Eliminar comentario</button>`:''}</article>`;}).join(''):'<p class="social-empty">Todavía no hay comentarios. Puedes escribir el primero.</p>'}</div>
+        ${guestMode?'<p class="social-local-note"><button class="v13-panel-button" type="button" data-v13="login">Inicia sesión para comentar</button></p>':item.review!=='approved'?'<p class="social-local-note">Podrás comentar cuando un editor apruebe la publicación.</p>':'<form id="comment-form"><label for="comment-body" class="sr-only">Escribe un comentario</label><textarea id="comment-body" required minlength="1" maxlength="500" rows="3" placeholder="Escribe un comentario respetuoso…"></textarea><div><small>Máximo 500 caracteres · Comentario público</small><button type="submit" class="social-button">Comentar</button></div></form>'}
+        <div class="comment-list">${rows.length?rows.map(c=>{const author=personFor(c.authorId)||{id:c.authorId,name:'Usuario',username:'ciudadano'};return `<article class="comment-item"><button type="button" class="person-inline" data-profile-id="${esc(author.id)}">${personAvatar(author)}<span><strong>${esc(author.name)}</strong><small>@${esc(author.username)} · ${esc(new Date(c.createdAt).toLocaleString('es-MX'))}</small></span></button><p>${v13MentionMarkup(c.text)}</p>${v13CommentActions(c,rows)}${(c.authorId===currentPersonId()||role==='editor')?`<button class="delete-comment" type="button" data-delete-comment="${esc(c.id)}">Eliminar comentario</button>`:''}</article>`;}).join(''):'<p class="social-empty">Todavía no hay comentarios. Puedes escribir el primero.</p>'}</div>
       </section>
     </article><p class="social-disclaimer">Los comentarios y votos se comparten entre usuarios registrados.</p>`;
 }
@@ -408,13 +418,14 @@ function card(item){
       <button type="button" class="post-action" data-open="${esc(item.id)}"><span aria-hidden="true">▤</span> Ver detalles</button>
       <button type="button" class="post-action" data-open="${esc(item.id)}">▤ ${countComments(item.id)} comentarios</button>
     </div>
+    ${v13PostActions(item)}
   </article>`;
 }
 function empty(title,desc,buttonText='',action=''){
   return `<div class="empty-state"><span class="empty-icon">⌖</span><strong>${esc(title)}</strong><p>${esc(desc)}</p>${buttonText?`<button type="button" data-action="${esc(action)}">${esc(buttonText)}</button>`:''}</div>`;
 }
 function canOpenView(next){
-  return next==='explorar' || (['mi-cuenta','configuracion','personas','publicacion'].includes(next) && role!=='visitante') || (next==='moderacion' && ['lector','editor'].includes(role));
+  return ['explorar','publicacion'].includes(next) || (['mi-cuenta','configuracion','personas','guardados','notificaciones'].includes(next) && role!=='visitante') || (next==='moderacion' && ['lector','editor'].includes(role)) || (next==='denuncias'&&role==='editor');
 }
 function updateNavigation(){
   document.querySelectorAll('.side-link[data-view]').forEach(button=>{
@@ -432,7 +443,7 @@ function setView(next){
   view=next; selectedId=null;
   if(next==='mi-cuenta')profileId=currentPersonId();
   document.querySelectorAll('.side-link[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===next));
-  if(['mi-cuenta','configuracion','personas','publicacion'].includes(next)) { render(); return; }
+  if(['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias'].includes(next)) { render(); if(['guardados','notificaciones','denuncias'].includes(next))void refreshCommunity({quiet:true}); return; }
   const headings={explorar:['PUBLICACIONES DE LA COMUNIDAD','El muro de Mazatlán'], moderacion:role==='lector'?['PANEL DE REVISIÓN','Reportes por revisar']:['PANEL EDITORIAL','Revisión pendiente']};
   $('.mini-eyebrow').textContent=headings[next][0];
   $('#feed-title').textContent=headings[next][1];
@@ -450,7 +461,9 @@ function render() {
   if(!canOpenView(view)) view='explorar';
   updateNavigation();
   document.querySelectorAll('.side-link[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
-  const alternate=['mi-cuenta','configuracion','personas','publicacion'].includes(view);
+  const alternate=['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias'].includes(view);
+  $('#v13-panel').hidden=!['guardados','notificaciones','denuncias'].includes(view);
+  $('#sign-out span:last-child').textContent=guestMode?'Iniciar sesión':'Cerrar sesión';
   $('.page-heading').hidden = alternate;
   $('#map-panel').hidden = alternate;
   $('.social-layout').hidden = alternate;
@@ -458,10 +471,13 @@ function render() {
   $('#profile-page').hidden=view!=='mi-cuenta';
   $('#post-page').hidden=view!=='publicacion';
   $('#people-page').hidden=view!=='personas';
+  if(['guardados','notificaciones','denuncias'].includes(view)){renderV13Panel();return;}
   if(view==='configuracion'){renderAccount();return;}
   if(view==='mi-cuenta'){renderProfilePage();scheduleMapCards();return;}
   if(view==='personas'){renderPeoplePage();return;}
   if(view==='publicacion'){renderPostPage();scheduleMapCards();return;}
+  $('#feed-mode-tabs').hidden=view!=='explorar'||role==='visitante';
+  $('#feed-mode-tabs').querySelectorAll('[data-feed-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.feedMode===feedMode)));
   updateStats();
   renderTrends();
   syncAdvancedForm();
@@ -551,6 +567,7 @@ function drawerHead(eyebrow,title,desc=''){
   return `<div class="drawer-head"><button class="drawer-close" type="button" data-action="close-drawer" aria-label="Cerrar panel">×</button><p class="eyebrow">${esc(eyebrow)}</p><h2>${esc(title)}</h2>${desc?`<p>${esc(desc)}</p>`:''}</div>`;
 }
 function notSignedIn(){
+ guestMode=false;sharedId=null;
   $('#auth-gate').hidden = false;
   $('.app-shell').hidden = true;
   setAuthView('login');
@@ -639,7 +656,7 @@ async function compressedPhoto(file){
 }
 async function handleReportSubmit(event){
  event.preventDefault();if(role==='visitante')return notSignedIn();
- const form=event.currentTarget,submit=form.querySelector('[type=submit]');submit.disabled=true;
+ const form=event.target,submit=form.querySelector('[type=submit]');submit.disabled=true;
  try{
   await requireCommunity();
   const type=$('#report-type').value,category=$('#report-category').value;
@@ -785,6 +802,7 @@ $('#account-panel').addEventListener('change', async e => {
   });
  }catch(error){showToast(error.message||'No se pudo editar la imagen.');}finally{input.value='';}
 });
+installColorPicker($('#account-panel'));
 $('#account-panel').addEventListener('submit', async e => {
   if (e.target.id === 'custom-theme-form') {
     e.preventDefault();
@@ -831,6 +849,7 @@ $('#public-profile-dialog').addEventListener('keydown',e=>{
   else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
 });
 $('#sign-out').addEventListener('click', async () => {
+  if(guestMode){guestMode=false;onIdentityChange({status:'signed_out'});return;}
   const button=$('#sign-out');button.disabled=true;
   try {await logoutAccount();onIdentityChange({status:'signed_out'});}
   catch {showToast('No se pudo cerrar sesión. Intenta de nuevo.');}
@@ -867,6 +886,7 @@ $('#sidebar-report').addEventListener('click',openReportForm);
 $('#composer-report').addEventListener('click',openReportForm);
 $('#composer-create').addEventListener('click',openReportForm);
 $('#refresh-now').addEventListener('click',()=>{void refreshCommunity();});
+$('#feed-mode-tabs').addEventListener('click',e=>{const b=e.target.closest('[data-feed-mode]');if(!b||!currentPersonId())return;feedMode=b.dataset.feedMode;render();});
 $('#trends-list').addEventListener('click',e=>{
   const b=e.target.closest('[data-trend-open]');if(!b)return;
   const item=items.find(i=>i.id===b.dataset.trendOpen);
@@ -906,7 +926,7 @@ $('#post-page').addEventListener('submit',e=>{
  if(!post)return showToast('No encontramos esta publicación.');
  const button=e.target.querySelector('button[type=submit]');button.disabled=true;
  void(async()=>{try{await requireCommunity();if(body.length<1||body.length>500)throw Error('El comentario debe tener entre 1 y 500 caracteres.');
-   await createCommentServer(post.id,currentPersonId(),body);await refreshCommunity({quiet:true});showToast('Comentario publicado.');}
+   if(!currentPersonId())return notSignedIn();await createCommentServer(post.id,currentPersonId(),body,replyId);replyId=null;await refreshCommunity({quiet:true});showToast('Comentario publicado.');}
    catch(error){showToast(error.message||'No se pudo publicar el comentario.');}
    finally{if(button.isConnected)button.disabled=false;}})();
 });
@@ -988,6 +1008,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(mapIsExpanded){c
 function setAuthView(next) {
   if(!['login','register','forgot','recover'].includes(next)) return;
   authView=next;
+  $('#v13-access').hidden=!['login','register'].includes(next);
   $('#auth-tabs').hidden=!['login','register'].includes(next);
   document.querySelectorAll('#auth-gate .auth-form').forEach(form => {form.hidden=form.id!==`${next}-form`;});
   document.querySelectorAll('[data-auth-view]').forEach(button => {
@@ -1020,7 +1041,7 @@ function ensureMap() {
 function onIdentityChange(state) {
   if (state.status==='loading') return;
   if (state.status==='signed_in') {
-    currentIdentity=state;
+    guestMode=false;currentIdentity=state;
     role=state.role;
     localProfile=loadLocalProfile(state.user.id);
     clearSocialSnapshot();communityReady=false;communityError='';items=[];
@@ -1041,7 +1062,10 @@ function onIdentityChange(state) {
     void refreshCommunity();
     return;
   }
-  currentIdentity=null;clearSocialSnapshot();communityReady=false;communityError='';items=[];
+  if(guestMode&&state.status==='signed_out')return;
+  if(sharedId&&state.status==='signed_out'){enterVisitor();return;}
+  feedMode='explorar';
+  currentIdentity=null;socialState={saved:[],notifications:[],flags:[],commentVotes:[]};clearSocialSnapshot();communityReady=false;communityError='';items=[];
   role='visitante';
   localProfile={username:'',bio:'',avatar:null,cover:null};
   updateComposerAvatar();
@@ -1058,6 +1082,9 @@ function onIdentityChange(state) {
   $('#auth-configuration').hidden=state.status!=='unconfigured';
   if(state.status==='error')setAuthFeedback(state.message||'No fue posible conectarse con Supabase.',true);
 }
+function enterVisitor(){guestMode=true;currentIdentity=null;role='visitante';view='explorar';$('#auth-gate').hidden=true;$('.app-shell').hidden=false;render();ensureMap();void refreshCommunity();}
+$('#guest-enter').addEventListener('click',enterVisitor);
+for(const button of document.querySelectorAll('[data-oauth]'))button.addEventListener('click',async()=>{button.disabled=true;try{await loginOAuth(button.dataset.oauth);}catch(error){setAuthFeedback(error.message,true);}finally{button.disabled=false;}});
 document.querySelectorAll('[data-auth-view]').forEach(button => button.addEventListener('click',()=>setAuthView(button.dataset.authView)));
 for(const form of document.querySelectorAll('#auth-gate .auth-form')) {
   form.addEventListener('submit',async event=>{
@@ -1098,3 +1125,42 @@ for(const form of document.querySelectorAll('#auth-gate .auth-form')) {
 }
 void loadBundledRegions().then(count=>{geoRegionsAvailable=count>0;setRegionData();if(currentIdentity)render();});
 void initializeAuth(onIdentityChange);
+
+function v13Button(kind,id,label){return '<button type="button" class="v13-panel-button" data-v13="'+esc(kind)+'" data-v13-id="'+esc(id||'')+'">'+esc(label)+'</button>';}
+function v13PostActions(item){return '<div class="v13-actions">'+(item.review==='approved'?v13Button('share',item.id,'Compartir')+v13Button('save',item.id,socialState.saved.includes(item.id)?'Quitar de guardados':'Guardar')+v13Button('flag-post',item.id,'Denunciar'):'')+(ownPost(item)?(item.type!=='news'?v13Button('edit-post',item.id,'Editar'):'')+v13Button('delete-post',item.id,'Eliminar'):'')+'</div>';}
+function v13CommentActions(c,rows){const parent=rows.find(r=>r.id===c.parentId),votes=socialState.commentVotes.filter(v=>v.comment_id===c.id);return (parent?'<small class="comment-reply-note">En respuesta a @'+esc(personFor(parent.authorId)?.username||'usuario')+'</small>':'')+(c.editedAt?'<small> · Editado</small>':'')+'<div class="v13-actions">'+v13Button('reply',c.id,'Responder')+v13Button('vote-comment',c.id,guestMode?'Votar':'▲ '+votes.length)+v13Button('flag-comment',c.id,'Denunciar')+(c.authorId===currentPersonId()?v13Button('edit-comment',c.id,'Editar'):'')+'</div>';}
+const notificationText={approved:'Tu publicación fue aprobada',rejected:'Tu publicación fue rechazada',follow:'Tienes un nuevo seguidor',comment:'Comentaron tu publicación',reply:'Respondieron a tu comentario',mention:'Te mencionaron en un comentario'};
+function renderV13Panel(){const p=$('#v13-panel');let body='';
+ if(view==='guardados'){body='<h2>Publicaciones guardadas</h2>'+items.filter(i=>socialState.saved.includes(i.id)&&i.review==='approved').map(i=>'<div class="v13-panel-row">'+esc(i.title)+' '+v13Button('open',i.id,'Ver publicación')+v13Button('save',i.id,'Quitar')+'</div>').join('');}
+ if(view==='notificaciones'){body='<h2>Notificaciones</h2>'+socialState.notifications.map(n=>'<div class="v13-panel-row"><strong>'+esc(notificationText[n.kind]||n.kind)+'</strong><p>'+esc(new Date(n.created_at).toLocaleString('es-MX'))+'</p>'+(!n.read_at?v13Button('read',n.id,'Marcar leída'):'Leída')+(n.post_id?v13Button('open',n.post_id,'Ver publicación'):'')+'</div>').join('');}
+ if(view==='denuncias'){body='<h2>Denuncias de la comunidad</h2>'+socialState.flags.filter(f=>f.status==='pending').map(f=>'<div class="v13-panel-row"><strong>'+esc(f.reason)+'</strong><p>'+esc(f.post_id?'Publicación':'Comentario')+' · '+esc(f.post_id||f.comment_id)+'</p>'+v13Button('open',f.post_id||items.find(i=>commentsFor(i.id).some(c=>c.id===f.comment_id))?.id,'Ver contenido')+v13Button('review-flag',f.id,'Marcar revisada')+'</div>').join('');}
+ p.innerHTML=body||'<p>Sin resultados.</p>';
+}
+function promptV13(title,fields){return new Promise(resolve=>{const d=document.createElement('dialog');d.className='v13-dialog';d.innerHTML='<form method="dialog"><h2>'+esc(title)+'</h2>'+fields.map(f=>'<label>'+esc(f.label)+(f.options?'<select name="'+esc(f.name)+'">'+f.options.map(o=>'<option>'+esc(o)+'</option>').join('')+'</select>':f.multiline?'<textarea name="'+esc(f.name)+'" maxlength="'+f.max+'" '+(f.required?'required':'')+'>'+esc(f.value||'')+'</textarea>':'<input name="'+esc(f.name)+'" value="'+esc(f.value||'')+'" maxlength="'+f.max+'" '+(f.required?'required':'')+'>')+'</label>').join('')+'<div class="v13-actions"><button type="submit" value="cancel" formnovalidate>Cancelar</button><button type="submit" value="ok">Confirmar</button></div></form>';document.body.append(d);d.addEventListener('close',()=>{const data=d.returnValue==='ok'?Object.fromEntries(new FormData(d.querySelector('form'))):null;d.remove();resolve(data);},{once:true});d.showModal();});}
+async function shareV13(id){const url=new URL(location.origin+location.pathname);url.searchParams.set('post',id);const d=document.createElement('dialog');d.className='v13-dialog';d.innerHTML='<form method="dialog"><h2>Compartir publicación</h2><input readonly value="'+esc(url.href)+'"><div class="v13-actions"><button type="button" data-copy>Copiar enlace</button><a target="_blank" rel="noopener noreferrer" href="https://wa.me/?text='+encodeURIComponent(url.href)+'">WhatsApp</a><a target="_blank" rel="noopener noreferrer" href="https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(url.href)+'">Facebook</a></div><button>Cerrar</button></form>';document.body.append(d);d.querySelector('[data-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(url.href);showToast('Enlace copiado.');}catch{d.querySelector('input').select();}};d.addEventListener('close',()=>d.remove(),{once:true});d.showModal();}
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-v13]');if(!b)return;const kind=b.dataset.v13,id=b.dataset.v13Id;
+ if(kind==='share')return shareV13(id);
+ if(kind==='open'){const item=items.find(i=>i.id===id);return item?openPost(item):showToast('Contenido no disponible.');}
+ if(!currentPersonId()||kind==='login')return notSignedIn();
+ if(kind==='reply'){replyId=id;const c=commentsFor(selectedId).find(c=>c.id===id),a=personFor(c?.authorId);const input=$('#comment-body');if(input){input.value='@'+(a?.username||'usuario')+' '+input.value;input.focus();}return;}
+ b.disabled=true;try{let extra;
+ if(kind==='save')extra=socialState.saved.includes(id);
+ if(kind==='vote-comment')extra=socialState.commentVotes.some(v=>v.comment_id===id&&v.user_id===currentPersonId());
+ if(kind.startsWith('flag-')){const f=await promptV13('Denunciar contenido',[{name:'reason',label:'Motivo',options:['spam','informacion falsa','acoso','inapropiado','otro']}]);if(!f)return;extra=f.reason;}
+ if(kind==='edit-post'){const p=items.find(i=>i.id===id);if(!p)return;const f=await promptV13('Editar y enviar a revisión',[{name:'title',label:'Título',value:p.title,max:110,required:true},{name:'description',label:'Descripción',value:p.description,max:800,multiline:true}]);if(!f)return;extra={title:f.title.trim(),description:f.description.trim()};if(extra.title===p.title&&extra.description===p.description)return;if(extra.title.length<3)throw Error('Título demasiado corto.');}
+ if(kind==='edit-comment'){const c=commentsFor(selectedId).find(c=>c.id===id);if(!c)return;const f=await promptV13('Editar comentario',[{name:'body',label:'Comentario',value:c.text,max:500,multiline:true,required:true}]);if(!f)return;extra=f.body.trim();if(!extra)throw Error('Comentario vacío.');}
+ if(kind==='delete-post'&&!confirm('¿Eliminar permanentemente esta publicación?'))return;
+ await socialAction(kind,id,currentPersonId(),extra);if(kind==='delete-post')setView('explorar');await refreshCommunity({quiet:true});showToast('Cambios guardados.');
+ }catch(error){showToast(error.message||'No se pudo completar la acción.');}finally{if(b.isConnected)b.disabled=false;}
+});
+
+function v13MentionMarkup(value){return String(value||'').split(/(@[a-zA-Z0-9_.]{1,30})/g).map(part=>{if(!part.startsWith('@'))return esc(part);const id=localPersonIds().find(i=>personFor(i)?.username?.toLowerCase()===part.slice(1).toLowerCase());return id?'<button type="button" class="v13-mention" data-profile-id="'+esc(id)+'">'+esc(part)+'</button>':esc(part);}).join('');}
+if('serviceWorker' in navigator&&window.isSecureContext)window.addEventListener('load',()=>{navigator.serviceWorker.register('./service-worker.js').catch(()=>{});});
+
+let fetchingNotifications=false;
+async function refreshNotificationsV13(){
+ const user=currentPersonId();if(!user||fetchingNotifications||document.hidden)return;
+ fetchingNotifications=true;try{const rows=await loadNotificationsV13();if(currentPersonId()!==user)return;socialState.notifications=rows;$('#notification-count').textContent=rows.filter(n=>!n.read_at).length||'';if(view==='notificaciones')renderV13Panel();}catch{}finally{fetchingNotifications=false;}
+}
+setInterval(()=>{void refreshNotificationsV13();},30000);
+document.addEventListener('visibilitychange',()=>{void refreshNotificationsV13();});
