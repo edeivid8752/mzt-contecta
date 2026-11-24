@@ -32,7 +32,7 @@ Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de m
 
 ## Historial de actualizaciones
 
-### v1.2 — En preparación (todavía no publicada)
+### v1.2 — Se corrigieron errores y agregaron funciones
 
 - Se muestra el rol real de los autores de las publicaciones: Editor, Lector o Ciudadano.
 - El cuadro de publicación muestra el avatar de la cuenta conectada, con una inicial cuando no hay foto.
