@@ -670,10 +670,15 @@ async function handleNewsSubmit(event){
 }
 async function handleRejectSubmit(event){
  event.preventDefault();if(role!=='editor')return;
- const id=event.currentTarget.dataset.itemId,reason=$('#reject-reason').value.trim();
- if(reason.length<8)return showToast('Explica el motivo del rechazo.');
+ const form=event.target,id=form.dataset.itemId,reason=form.querySelector('#reject-reason').value.trim();
+ if(!id||!items.some(item=>item.id===id&&['pending','reviewed'].includes(item.review)))return showToast('Selecciona nuevamente la publicación que deseas rechazar.');
+ if(reason.length<8||reason.length>300)return showToast('Explica el motivo del rechazo (8 a 300 caracteres).');
+ const submit=form.querySelector('[type=submit]');
+ if(submit.disabled)return;
+ submit.disabled=true;
  try{await requireCommunity();await moderatePostServer(id,'rejected',reason);closeDrawer();await refreshCommunity();showToast('Reporte rechazado.');}
  catch(error){showToast(error.message||'No se pudo rechazar el reporte.');}
+ finally{if(submit.isConnected)submit.disabled=false;}
 }
 function closePicker(){
   if($('#picker-overlay').hidden) return;
