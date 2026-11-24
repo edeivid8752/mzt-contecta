@@ -20,15 +20,22 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres -d mzt_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
       - name: Pruebas JavaScript
         working-directory: MZT_Conecta_web_oficial
         run: |
+          node --version
           node --experimental-default-type=module tests/v12.test.mjs
           node --experimental-default-type=module tests/v13.test.mjs
       - name: Migración y permisos en base desechable
