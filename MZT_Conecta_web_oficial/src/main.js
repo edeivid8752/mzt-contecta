@@ -1101,7 +1101,7 @@ for(const form of document.querySelectorAll('#auth-gate .auth-form')) {
         await refreshIdentity();
       } else if(authView==='register') {
         if(password!==confirm)throw Error('Las contraseñas no coinciden.');
-        const result=await createAccount(email,password);
+        const result=await createAccount(email,password,data.get('display_name'),data.get('username'));
         form.reset();
         if(result.session) {
           await refreshIdentity();
