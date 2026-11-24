@@ -75,3 +75,11 @@ export async function prepareAvatar(file) {
     throw Error(error.message || 'No pudimos leer la imagen.');
   } finally {URL.revokeObjectURL(url);}
 }
+
+export function registrationProfile(displayName,username) {
+  const name=String(displayName??'').trim();
+  const handle=normalizeUsername(username);
+  if ([...name].length<3 || [...name].length>40) throw Error('El nombre visible debe tener entre 3 y 40 caracteres.');
+  if (!validUsername(handle)) throw Error('El nombre de usuario debe tener entre 3 y 20 caracteres: letras, números, puntos o guiones bajos.');
+  return {display_name:name,username:handle};
+}

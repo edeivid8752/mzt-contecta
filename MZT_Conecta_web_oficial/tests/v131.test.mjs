@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {registrationProfile} from '../src/profile.js';
+assert.deepEqual(registrationProfile('  Nombre Visible  ','@Usuario.01'),{display_name:'Nombre Visible',username:'usuario.01'});
+assert.throws(()=>registrationProfile('  ','usuario'));
+assert.throws(()=>registrationProfile('a'.repeat(41),'usuario'));
+assert.throws(()=>registrationProfile('Nombre','ab'));
+assert.throws(()=>registrationProfile('Nombre','usuario con espacios'));
+assert.throws(()=>registrationProfile('Nombre','a'.repeat(21)));
+assert.throws(()=>registrationProfile('Nombre',''));
+assert.deepEqual(registrationProfile('Nombre','A_B'),{display_name:'Nombre',username:'a_b'});
+console.log('8 pruebas de identidad v1.3.1 correctas');

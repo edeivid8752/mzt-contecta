@@ -41,6 +41,8 @@
           <button type="button" class="auth-text-link" data-auth-view="forgot">Olvidé mi contraseña</button>
         </form>
         <form id="register-form" class="auth-form" hidden>
+          <label>Nombre visible<input name="display_name" id="register-display-name" autocomplete="nickname" minlength="3" maxlength="40" required placeholder="Tu nombre visible"></label>
+          <label for="register-username">Nombre de usuario<span class="profile-handle-field auth-handle-field"><span aria-hidden="true">@</span><input name="username" id="register-username" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="20" pattern="[a-zA-Z0-9._]{3,20}" required placeholder="tuusuario" aria-describedby="register-handle-help"></span><small id="register-handle-help" class="auth-handle-help">De 3 a 20 caracteres: letras, números, punto o guion bajo.</small></label>
           <label>Correo electrónico<input name="email" type="email" autocomplete="email" required placeholder="tu@correo.com"></label>
           <label>Contraseña<input name="password" type="password" autocomplete="new-password" minlength="10" required placeholder="Mínimo 10 caracteres"></label>
           <label>Confirmar contraseña<input name="confirm" type="password" autocomplete="new-password" minlength="10" required placeholder="Repite tu contraseña"></label>

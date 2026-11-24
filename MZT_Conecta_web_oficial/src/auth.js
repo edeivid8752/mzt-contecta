@@ -1,3 +1,4 @@
+import {registrationProfile} from './profile.js';
 import {SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY} from './supabase-config.js';
 
 let clientPromise = null;
@@ -84,10 +85,25 @@ async function requiredClient() {
   return client;
 }
 
-export async function createAccount(email, password) {
+export async function createAccount(email, password, displayName, username) {
+  const profile = registrationProfile(displayName, username);
   const client = await requiredClient();
-  const {data, error} = await client.auth.signUp({email, password, options: {emailRedirectTo: location.origin + location.pathname}});
-  if (error) throw error;
+  const available = async () => {
+    const {data,error}=await client.rpc('mzt_username_available',{p_username:profile.username});
+    if(error) throw Error('No se pudo verificar el nombre de usuario. Inténtalo de nuevo.');
+    return data === true;
+  };
+  if(!await available()) throw Error('Ese nombre de usuario ya está ocupado. Elige otro.');
+  const {data, error} = await client.auth.signUp({email, password, options: {data:profile,emailRedirectTo: location.origin + location.pathname}});
+  if (error) {
+    // La restricción única del servidor también protege frente a registros simultáneos.
+    if(error.code === 'unexpected_failure' || /database error/i.test(error.message||'')) {
+      let taken=false;
+      try {taken=!(await available());} catch {}
+      if(taken) throw Error('Ese nombre de usuario ya está ocupado. Elige otro.');
+    }
+    throw error;
+  }
   return data;
 }
 export async function loginAccount(email, password) {
