@@ -32,13 +32,17 @@ Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de m
 
 ## Historial de actualizaciones
 
-### v1.3 — Se agrego el usuario visitante y nuevas funciones
+### v1.3.1 — Se mejoró el registro de usuarios
 
-- Acceso de solo lectura para visitantes. El registro por correo y contraseña se conserva; OAuth queda aplazado.
+- Se agregó la opción de elegir el nombre visible y el nombre de usuario al crear una cuenta.
+- Se incorporó la validación de nombres de usuario únicos.
+
+### v1.3 — Se agregó el usuario visitante y nuevas funciones
+
+- Acceso de solo lectura para visitantes.
 - Notificaciones, guardados, compartir enlaces, denuncias y edición/eliminación de publicaciones propias.
 - Respuestas, votos, edición y menciones en comentarios.
 - Aplicación web instalable, muro Explorar/Siguiendo y selector HSV.
-- Pendientes: pruebas integrales, migración aislada, instalación PWA y autorización del despliegue.
 
 ### v1.2 — Se corrigieron errores y agregaron funciones
 
