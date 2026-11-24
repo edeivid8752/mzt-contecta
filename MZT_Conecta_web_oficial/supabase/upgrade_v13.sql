@@ -1,5 +1,7 @@
 -- v1.3 draft: test in isolated Supabase before production. No destructive reset.
 BEGIN;
+ALTER TABLE public.mzt_comments ADD COLUMN IF NOT EXISTS parent_id uuid;
+ALTER TABLE public.mzt_comments ADD COLUMN IF NOT EXISTS edited_at timestamptz;
 -- Public read projection: no emails, private reports, voter identities or follower graph.
 CREATE OR REPLACE FUNCTION public.mzt_public_feed(p_post uuid DEFAULT NULL)
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
@@ -8,7 +10,7 @@ WITH posts AS (
  FROM public.mzt_posts p WHERE p.review='approved'
  ORDER BY (p.id=p_post) DESC NULLS LAST,p.created_at DESC LIMIT 500
 ), comments AS (
- SELECT c.id,c.post_id,c.user_id,c.body,c.created_at FROM public.mzt_comments c JOIN posts p ON p.id=c.post_id ORDER BY c.created_at DESC LIMIT 1000
+ SELECT c.id,c.post_id,c.user_id,c.body,c.created_at,c.parent_id,c.edited_at FROM public.mzt_comments c JOIN posts p ON p.id=c.post_id ORDER BY c.created_at DESC LIMIT 1000
 ), authors AS (SELECT user_id FROM posts UNION SELECT user_id FROM comments)
 SELECT jsonb_build_object(
  'posts',coalesce((select jsonb_agg(to_jsonb(p)) from posts p),'[]'::jsonb),
@@ -79,7 +81,7 @@ CREATE INDEX v13_notification_owner ON public.mzt_notifications(user_id,created_
 CREATE SCHEMA IF NOT EXISTS mzt_private;
 REVOKE ALL ON SCHEMA mzt_private FROM PUBLIC,anon,authenticated;
 CREATE OR REPLACE FUNCTION mzt_private.v13_notify() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE owner_id uuid; parent_owner uuid;
+DECLARE owner_id uuid; parent_owner uuid; mentioned_id uuid;
 BEGIN
  IF TG_TABLE_NAME='mzt_posts' THEN
   IF NEW.review IS DISTINCT FROM OLD.review AND NEW.review IN ('approved','rejected') THEN
@@ -92,6 +94,9 @@ BEGIN
   IF owner_id<>NEW.user_id THEN INSERT INTO public.mzt_notifications(user_id,kind,post_id) VALUES(owner_id,'comment',NEW.post_id); END IF;
   SELECT c.user_id INTO parent_owner FROM public.mzt_comments c WHERE c.id=NEW.parent_id;
   IF parent_owner<>NEW.user_id AND parent_owner IS DISTINCT FROM owner_id THEN INSERT INTO public.mzt_notifications(user_id,kind,post_id) VALUES(parent_owner,'reply',NEW.post_id); END IF;
+  FOR mentioned_id IN SELECT DISTINCT p.id FROM public.profiles p JOIN regexp_matches(NEW.body,'@([a-zA-Z0-9_.]{1,30})','g') AS m ON lower(p.username)=lower(m[1]) WHERE p.id<>NEW.user_id AND p.id IS DISTINCT FROM owner_id AND p.id IS DISTINCT FROM parent_owner LOOP
+   INSERT INTO public.mzt_notifications(user_id,kind,post_id) VALUES(mentioned_id,'mention',NEW.post_id);
+  END LOOP;
  END IF;
  RETURN NEW;
 END $$;
