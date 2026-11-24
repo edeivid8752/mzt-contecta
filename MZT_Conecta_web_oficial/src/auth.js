@@ -118,3 +118,5 @@ export async function saveDisplayName(userId, displayName) {
   if (error) throw error;
   return data;
 }
+
+export async function loginOAuth(provider){if(!['google','facebook','apple','discord','github'].includes(provider))throw Error('Proveedor no válido');const c=await requiredClient();const {error}=await c.auth.signInWithOAuth({provider,options:{redirectTo:location.origin+location.pathname+location.search}});if(error)throw error;}
