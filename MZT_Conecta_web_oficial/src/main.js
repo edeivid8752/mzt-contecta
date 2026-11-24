@@ -47,10 +47,10 @@ let helpfulVotes = new Set();
 async function refreshCommunity({quiet=false}={}){
  if(loadingCommunity)return;
  loadingCommunity=true;
- const requestedUserId=currentPersonId();
+ const requestedUserId=currentPersonId(),requestedGuest=guestMode;
  try{
   const snapshot=await loadCommunity(guestMode);
-  if(currentPersonId()!==requestedUserId)return;
+  if(currentPersonId()!==requestedUserId||guestMode!==requestedGuest)return;
   setSocialSnapshot(snapshot);socialState=snapshot;
   $('#notification-count').textContent=snapshot.notifications.filter(n=>!n.read_at).length||'';
   items=snapshot.items;
@@ -66,7 +66,7 @@ async function refreshCommunity({quiet=false}={}){
  }catch(error){communityReady=false;communityError=error.message||'No fue posible cargar la comunidad.';
   if(!quiet)showToast('No se cargaron los datos reales. Revisa la migración SQL v1.0 y tu conexión a Supabase.');
   render();
- }finally{loadingCommunity=false;}
+ }finally{loadingCommunity=false;if((currentPersonId()!==requestedUserId||guestMode!==requestedGuest)&&(currentPersonId()||guestMode))void refreshCommunity({quiet:true});}
 }
 async function requireCommunity(){
  if(!communityReady)throw Error('La comunidad no está conectada. Ejecuta supabase/upgrade_v10.sql en tu proyecto y vuelve a entrar.');
@@ -392,7 +392,7 @@ function renderPostPage(){
       ${v13PostActions(item)}
       <section class="post-comments" aria-labelledby="comments-heading"><div class="comment-heading"><h2 id="comments-heading">Comentarios</h2><span>${rows.length}</span></div>
         ${guestMode?'<p class="social-local-note"><button class="v13-panel-button" type="button" data-v13="login">Inicia sesión para comentar</button></p>':item.review!=='approved'?'<p class="social-local-note">Podrás comentar cuando un editor apruebe la publicación.</p>':'<form id="comment-form"><label for="comment-body" class="sr-only">Escribe un comentario</label><textarea id="comment-body" required minlength="1" maxlength="500" rows="3" placeholder="Escribe un comentario respetuoso…"></textarea><div><small>Máximo 500 caracteres · Comentario público</small><button type="submit" class="social-button">Comentar</button></div></form>'}
-        <div class="comment-list">${rows.length?rows.map(c=>{const author=personFor(c.authorId)||{id:c.authorId,name:'Usuario',username:'ciudadano'};return `<article class="comment-item"><button type="button" class="person-inline" data-profile-id="${esc(author.id)}">${personAvatar(author)}<span><strong>${esc(author.name)}</strong><small>@${esc(author.username)} · ${esc(new Date(c.createdAt).toLocaleString('es-MX'))}</small></span></button><p>${esc(c.text)}</p>${v13CommentActions(c,rows)}${(c.authorId===currentPersonId()||role==='editor')?`<button class="delete-comment" type="button" data-delete-comment="${esc(c.id)}">Eliminar comentario</button>`:''}</article>`;}).join(''):'<p class="social-empty">Todavía no hay comentarios. Puedes escribir el primero.</p>'}</div>
+        <div class="comment-list">${rows.length?rows.map(c=>{const author=personFor(c.authorId)||{id:c.authorId,name:'Usuario',username:'ciudadano'};return `<article class="comment-item"><button type="button" class="person-inline" data-profile-id="${esc(author.id)}">${personAvatar(author)}<span><strong>${esc(author.name)}</strong><small>@${esc(author.username)} · ${esc(new Date(c.createdAt).toLocaleString('es-MX'))}</small></span></button><p>${v13MentionMarkup(c.text)}</p>${v13CommentActions(c,rows)}${(c.authorId===currentPersonId()||role==='editor')?`<button class="delete-comment" type="button" data-delete-comment="${esc(c.id)}">Eliminar comentario</button>`:''}</article>`;}).join(''):'<p class="social-empty">Todavía no hay comentarios. Puedes escribir el primero.</p>'}</div>
       </section>
     </article><p class="social-disclaimer">Los comentarios y votos se comparten entre usuarios registrados.</p>`;
 }
@@ -566,7 +566,7 @@ function drawerHead(eyebrow,title,desc=''){
   return `<div class="drawer-head"><button class="drawer-close" type="button" data-action="close-drawer" aria-label="Cerrar panel">×</button><p class="eyebrow">${esc(eyebrow)}</p><h2>${esc(title)}</h2>${desc?`<p>${esc(desc)}</p>`:''}</div>`;
 }
 function notSignedIn(){
- guestMode=false;
+ guestMode=false;sharedId=null;
   $('#auth-gate').hidden = false;
   $('.app-shell').hidden = true;
   setAuthView('login');
@@ -1062,6 +1062,7 @@ function onIdentityChange(state) {
     return;
   }
   if(guestMode&&state.status==='signed_out')return;
+  if(sharedId&&state.status==='signed_out'){enterVisitor();return;}
   feedMode='explorar';
   currentIdentity=null;socialState={saved:[],notifications:[],flags:[],commentVotes:[]};clearSocialSnapshot();communityReady=false;communityError='';items=[];
   role='visitante';
@@ -1080,7 +1081,8 @@ function onIdentityChange(state) {
   $('#auth-configuration').hidden=state.status!=='unconfigured';
   if(state.status==='error')setAuthFeedback(state.message||'No fue posible conectarse con Supabase.',true);
 }
-$('#guest-enter').addEventListener('click',()=>{guestMode=true;currentIdentity=null;role='visitante';view='explorar';$('#auth-gate').hidden=true;$('.app-shell').hidden=false;render();ensureMap();void refreshCommunity();});
+function enterVisitor(){guestMode=true;currentIdentity=null;role='visitante';view='explorar';$('#auth-gate').hidden=true;$('.app-shell').hidden=false;render();ensureMap();void refreshCommunity();}
+$('#guest-enter').addEventListener('click',enterVisitor);
 for(const button of document.querySelectorAll('[data-oauth]'))button.addEventListener('click',async()=>{button.disabled=true;try{await loginOAuth(button.dataset.oauth);}catch(error){setAuthFeedback(error.message,true);}finally{button.disabled=false;}});
 document.querySelectorAll('[data-auth-view]').forEach(button => button.addEventListener('click',()=>setAuthView(button.dataset.authView)));
 for(const form of document.querySelectorAll('#auth-gate .auth-form')) {
@@ -1126,7 +1128,7 @@ void initializeAuth(onIdentityChange);
 function v13Button(kind,id,label){return '<button type="button" class="v13-panel-button" data-v13="'+esc(kind)+'" data-v13-id="'+esc(id||'')+'">'+esc(label)+'</button>';}
 function v13PostActions(item){return '<div class="v13-actions">'+(item.review==='approved'?v13Button('share',item.id,'Compartir')+v13Button('save',item.id,socialState.saved.includes(item.id)?'Quitar de guardados':'Guardar')+v13Button('flag-post',item.id,'Denunciar'):'')+(ownPost(item)?(item.type!=='news'?v13Button('edit-post',item.id,'Editar'):'')+v13Button('delete-post',item.id,'Eliminar'):'')+'</div>';}
 function v13CommentActions(c,rows){const parent=rows.find(r=>r.id===c.parentId),votes=socialState.commentVotes.filter(v=>v.comment_id===c.id);return (parent?'<small class="comment-reply-note">En respuesta a @'+esc(personFor(parent.authorId)?.username||'usuario')+'</small>':'')+(c.editedAt?'<small> · Editado</small>':'')+'<div class="v13-actions">'+v13Button('reply',c.id,'Responder')+v13Button('vote-comment',c.id,'▲ '+votes.length)+v13Button('flag-comment',c.id,'Denunciar')+(c.authorId===currentPersonId()?v13Button('edit-comment',c.id,'Editar'):'')+'</div>';}
-const notificationText={approved:'Tu publicación fue aprobada',rejected:'Tu publicación fue rechazada',follow:'Tienes un nuevo seguidor',comment:'Comentaron tu publicación',reply:'Respondieron a tu comentario'};
+const notificationText={approved:'Tu publicación fue aprobada',rejected:'Tu publicación fue rechazada',follow:'Tienes un nuevo seguidor',comment:'Comentaron tu publicación',reply:'Respondieron a tu comentario',mention:'Te mencionaron en un comentario'};
 function renderV13Panel(){const p=$('#v13-panel');let body='';
  if(view==='guardados'){body='<h2>Publicaciones guardadas</h2>'+items.filter(i=>socialState.saved.includes(i.id)&&i.review==='approved').map(i=>'<div class="v13-panel-row">'+esc(i.title)+' '+v13Button('open',i.id,'Ver publicación')+v13Button('save',i.id,'Quitar')+'</div>').join('');}
  if(view==='notificaciones'){body='<h2>Notificaciones</h2>'+socialState.notifications.map(n=>'<div class="v13-panel-row"><strong>'+esc(notificationText[n.kind]||n.kind)+'</strong><p>'+esc(new Date(n.created_at).toLocaleString('es-MX'))+'</p>'+(!n.read_at?v13Button('read',n.id,'Marcar leída'):'Leída')+(n.post_id?v13Button('open',n.post_id,'Ver publicación'):'')+'</div>').join('');}
@@ -1144,9 +1146,12 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-v13]
  if(kind==='save')extra=socialState.saved.includes(id);
  if(kind==='vote-comment')extra=socialState.commentVotes.some(v=>v.comment_id===id&&v.user_id===currentPersonId());
  if(kind.startsWith('flag-')){const f=await promptV13('Denunciar contenido',[{name:'reason',label:'Motivo',options:['spam','informacion falsa','acoso','inapropiado','otro']}]);if(!f)return;extra=f.reason;}
- if(kind==='edit-post'){const p=items.find(i=>i.id===id);if(!p)return;const f=await promptV13('Editar y enviar a revisión',[{name:'title',label:'Título',value:p.title,max:110,required:true},{name:'description',label:'Descripción',value:p.description,max:3000,multiline:true}]);if(!f)return;extra={title:f.title.trim(),description:f.description.trim()};if(extra.title.length<3)throw Error('Título demasiado corto.');}
+ if(kind==='edit-post'){const p=items.find(i=>i.id===id);if(!p)return;const f=await promptV13('Editar y enviar a revisión',[{name:'title',label:'Título',value:p.title,max:110,required:true},{name:'description',label:'Descripción',value:p.description,max:800,multiline:true}]);if(!f)return;extra={title:f.title.trim(),description:f.description.trim()};if(extra.title.length<3)throw Error('Título demasiado corto.');}
  if(kind==='edit-comment'){const c=commentsFor(selectedId).find(c=>c.id===id);if(!c)return;const f=await promptV13('Editar comentario',[{name:'body',label:'Comentario',value:c.text,max:500,multiline:true,required:true}]);if(!f)return;extra=f.body.trim();if(!extra)throw Error('Comentario vacío.');}
  if(kind==='delete-post'&&!confirm('¿Eliminar permanentemente esta publicación?'))return;
  await socialAction(kind,id,currentPersonId(),extra);if(kind==='delete-post')setView('explorar');await refreshCommunity({quiet:true});showToast('Cambios guardados.');
  }catch(error){showToast(error.message||'No se pudo completar la acción.');}finally{if(b.isConnected)b.disabled=false;}
 });
+
+function v13MentionMarkup(value){return String(value||'').split(/(@[a-zA-Z0-9_.]{1,30})/g).map(part=>{if(!part.startsWith('@'))return esc(part);const id=localPersonIds().find(i=>personFor(i)?.username?.toLowerCase()===part.slice(1).toLowerCase());return id?'<button type="button" class="v13-mention" data-profile-id="'+esc(id)+'">'+esc(part)+'</button>':esc(part);}).join('');}
+if('serviceWorker' in navigator&&window.isSecureContext)window.addEventListener('load',()=>{navigator.serviceWorker.register('./service-worker.js').catch(()=>{});});
