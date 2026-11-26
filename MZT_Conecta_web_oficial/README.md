@@ -1,8 +1,35 @@
-# MZT Conecta — v1.3.1
+# MZT Conecta — v2.0
 
 **[mztconecta.com](https://mztconecta.com)** · Porque lo que pasa en Mazatlán nos une.
 
 ## Historial de actualizaciones
+
+### v2.0 — Expansión de la plataforma
+
+**Navegación e interfaz**
+- Nueva barra superior con Muro, Foro y ¿Quiénes somos?
+- Selectores personalizados en formularios y filtros, con navegación por teclado.
+- Ajustes de distribución, espaciado y adaptación a pantallas pequeñas.
+
+**Muro, mapa y publicaciones**
+- Tres secciones: Social, Noticias e Infraestructura, con categorías y filtros temáticos independientes.
+- Mapa principal que se reduce y permanece visible al recorrer el muro, con opción de ampliar o recuperar el mapa grande.
+- Marcadores diferenciados por tipo y categoría; al pulsarlos, se desplaza el muro a la publicación correspondiente.
+- Tendencias independientes por sección, con publicaciones aprobadas de los últimos siete días.
+- Mapa alternativo para dispositivos sin WebGL.
+- Publicaciones sociales con fecha de evento opcional.
+
+**Foro**
+- Conversaciones organizadas por categorías, con orden por popularidad o fecha.
+- Respuestas y votos positivos o negativos.
+- Vinculación opcional de conversaciones con publicaciones del mapa.
+
+**Perfiles y comunidad**
+- Listas de seguidores y seguidos desde los perfiles, con acceso a las personas y acciones de seguimiento.
+
+**Información y actualidad**
+- Barra Al día con titulares rotativos, próximos eventos y clima de Mazatlán.
+- Apartado ¿Quiénes somos? y espacio de colaboraciones, accesible desde el inicio de sesión.
 
 ### v1.3.1 — Se mejoró el registro de usuarios
 
@@ -24,8 +51,8 @@
 
 ## Guía técnica de actualización
 
-- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`. No ejecutar scripts antiguos de instalación sobre producción.
+- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`, `supabase/upgrade_v20.sql`. No ejecutar scripts antiguos de instalación sobre producción.
 - La actualización v1.3.1 utiliza los metadatos de registro solo para el nombre visible y el identificador, nunca para asignar roles.
 - El índice único de perfiles evita duplicados incluso con registros simultáneos. La consulta de disponibilidad devuelve únicamente un booleano.
-- GitHub Actions ejecuta las pruebas de JavaScript y PostgreSQL con datos ficticios.
+- GitHub Actions verifica JavaScript y las migraciones de PostgreSQL en una base aislada.
 - Render conserva la configuración existente, incluyendo manifest y service worker. No publicar claves privadas.

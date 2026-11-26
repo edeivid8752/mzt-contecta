@@ -36,6 +36,8 @@ jobs:
         working-directory: MZT_Conecta_web_oficial
         run: |
           node --version
+          find src -name '*.js' -print0 | xargs -0 -n 1 node --experimental-default-type=module --check
+          node --experimental-default-type=module tests/v20.test.mjs
           node --experimental-default-type=module tests/v12.test.mjs
           node --experimental-default-type=module tests/v13.test.mjs
           node --experimental-default-type=module tests/v131.test.mjs

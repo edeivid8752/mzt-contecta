@@ -1,4 +1,4 @@
-import {CATEGORY_OPTIONS, PLACES, TYPE_INFO, dateISO, offsetDate} from './data.js';
+import {CATEGORY_OPTIONS, PLACES, TYPE_INFO, dateISO, offsetDate, WALL_TOPICS, matchesWallTopic} from './data.js';
 import {initMap, setMapItems, focusMapItem, resizeMap, setRegionData, setSelectedRegion, refreshEmbeddedMaps, destroyEmbeddedMaps, createLocationPreview, destroyLocationPreview, createPickerMap, destroyPickerMap} from './map.js';
 import {loadBundledRegions,setRegions,regionNames,pointInRegion,matchingRegion} from './regions.js';
 import {THEMES, themeSelection, activePalette, applyTheme, choosePreset, chooseCustom, restoreDefault} from './theme.js';
@@ -11,6 +11,9 @@ import {loadNotificationsV13,socialAction,loadCommunity,createPost,updateProfile
 
 import {selectTrends, avatarInitial, authorByline} from './community-v12.js';
 import {installColorPicker,selectFollowing} from './community-v13.js';
+import {createForum} from './forum-v20.js';
+import {installSelects,refreshSelects} from './selectors-v20.js';
+import {setupDaily} from './daily-bar.js';
 let feedMode='explorar',guestMode=false,replyId=null,socialState={saved:[],notifications:[],flags:[],commentVotes:[]};
 let sharedId=new URLSearchParams(location.search).get('post');
 
@@ -36,7 +39,8 @@ let mapIsExpanded=false;
 let mapExpandFocus=null;
 let selectedId = null;
 let search = '';
-let enabled = new Set(['news','citizen','infrastructure']);
+let wallSection='news',topics={social:new Set(),news:new Set(),infrastructure:new Set()},connectionsId=null,connectionsMode='followers';
+let forum=null,updateDaily=null,dockQueued=false;
 let chosenCoordinates = PLACES[0].coordinates.slice();
 let customMapPoint = false;
 let pickerReturnFocus = null;
@@ -91,7 +95,7 @@ function isLiveOn(item, day) {
   if(item.type==='infrastructure') {
     return sameOrEarlier(item.day,day) && (!item.resolvedAt || day <= offsetDate(item.resolvedAt,3));
   }
-  return item.day===day;
+  return item.type==='social'&&item.eventDay?item.eventDay===day:item.day===day;
 }
 function dateLabel(d){
   if(d===dateISO()) return 'Hoy, '+new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'long'}).format(new Date(d+'T12:00:00'));
@@ -129,7 +133,7 @@ function openProfile(id){
  if(!currentPersonId())return notSignedIn();
   closeExpandedMap();
   if(!id||!personFor(id))return showToast('No encontramos ese perfil en la comunidad.');
-  profileReturnView=['explorar','moderacion','personas','mi-cuenta','publicacion'].includes(view)?view:'explorar';
+  profileReturnView=['explorar','moderacion','personas','mi-cuenta','publicacion','connections','foro'].includes(view)?view:'explorar';
   profileId=id;profileTab='publicaciones';view='mi-cuenta';render();
   $('.main-area').scrollTo({top:0,behavior:'smooth'});
 }
@@ -179,9 +183,10 @@ function regionMatches(item){
 function visibleForDay(){
   const q=search.toLocaleLowerCase('es').trim();
   const source=feedMode==='siguiendo'&&currentPersonId()?selectFollowing(items,[...new Set(items.map(authorIdFor))].filter(id=>isFollowing(currentPersonId(),id)),authorIdFor):items;
-  const list=source.filter(i=>i.review==='approved'&&enabled.has(i.type)&&dateMatches(i)&&regionMatches(i)
+  const list=source.filter(i=>i.review==='approved'&&sectionFor(i)===wallSection&&topicMatch(i)&&dateMatches(i)&&regionMatches(i)
     &&(!advanced.located||Boolean(i.coordinates)))
     .filter(i=>!q||[i.title,i.description,i.category,i.location].some(v=>String(v||'').toLocaleLowerCase('es').includes(q)));
+  const selected=items.find(i=>i.id===selectedId&&i.review==='approved'&&sectionFor(i)===wallSection);if(selected&&!list.some(i=>i.id===selected.id))list.push(selected);
   return list.sort((a,b)=>{
     if(advanced.sort==='votes')return voteCount(b)-voteCount(a) || String(b.createdAt).localeCompare(String(a.createdAt));
     const order=String(b.createdAt||b.day+'T'+b.clock).localeCompare(String(a.createdAt||a.day+'T'+a.clock));
@@ -217,7 +222,7 @@ function syncAdvancedForm(){
   setSelectedRegion(advanced.region==='all'?null:advanced.region);
 }
 function resetAllFilters(){
-  enabled=new Set(['news','citizen','infrastructure']);advanced={period:'all',from:'',to:'',region:'all',sort:'newest',located:false};
+  topics[wallSection].clear();selectedId=null;advanced={period:'all',from:'',to:'',region:'all',sort:'newest',located:false};
   search='';$('#search-input').value='';syncAdvancedForm();render();
 }
 function toggleFilters(open){
@@ -257,6 +262,7 @@ function goHome(){
 }
 function updateStats(){
   const pub=publishedForDay();
+  $('#count-social').textContent=pub.filter(i=>i.type==='social').length;
   $('#count-news').textContent=pub.filter(i=>i.type==='news').length;
   $('#count-citizen').textContent=pub.filter(i=>i.type==='citizen').length;
   $('#count-infrastructure').textContent=pub.filter(i=>i.type==='infrastructure').length;
@@ -269,7 +275,7 @@ function voteCount(item) {
 }
 function renderTrends(){
   // Ventana móvil de 168 horas desde la creación, independiente de los filtros del muro.
-  const candidates=selectTrends(items,voteCount);
+  const candidates=selectTrends(items.filter(i=>sectionFor(i)===wallSection),voteCount);
   $('#trends-list').innerHTML=candidates.length ? candidates.map((item,index)=>`
     <button type="button" class="trend-item" data-trend-open="${esc(item.id)}" aria-label="Abrir publicación: ${esc(item.title)}">
       <span class="trend-rank">${index+1}</span>
@@ -354,7 +360,7 @@ function renderProfilePage(){
       <div class="social-profile-body"><div class="social-profile-top">${personAvatar(person,'social-big-avatar')}<div class="social-profile-actions">${followAction}</div></div>
         <h1>${esc(person.name)}</h1><p class="social-handle">@${esc(person.username)}</p>
         <p class="social-bio">${esc(person.bio||'Todavía no hay una biografía.')}</p>
-        <div class="social-stats"><span><strong>${posts.length}</strong> publicaciones</span><span><strong>${followersOf(id)}</strong> seguidores</span><span><strong>${followingOf(id)}</strong> seguidos</span></div>
+        <div class="social-stats"><span><strong>${posts.length}</strong> publicaciones</span><button type="button" data-connections="followers"><strong>${followersOf(id)}</strong> seguidores</button><button type="button" data-connections="following"><strong>${followingOf(id)}</strong> seguidos</button></div>
       </div>
     </div>
     <div class="profile-feed-heading"><div><span>ACTIVIDAD DEL PERFIL</span><h2>Publicaciones</h2></div><div class="profile-feed-tabs"><button type="button" data-profile-tab="publicaciones" class="${profileTab==='publicaciones'?'active':''}">Todas</button><button type="button" data-profile-tab="reportes" class="${profileTab==='reportes'?'active':''}">Reportes</button></div></div>
@@ -381,7 +387,7 @@ function renderPostPage(){
     <article class="social-post-detail">
       <div class="post-detail-author"><button type="button" class="person-inline" data-profile-id="${esc(person.id)}">${personAvatar(person)}<span><strong>${esc(person.name)}</strong><small>${esc(postAuthorByline(item))}</small></span></button><span class="post-detail-time">${esc(item.day)} · ${esc(item.clock)}</span></div>
       <div class="post-detail-content"><span class="type-tag ${esc(item.type)}">${esc(typeLabel(item))}</span>${item.category?`<span class="post-topic">${esc(item.category)}</span>`:''}
-        <h1>${esc(item.title)}</h1>${item.description?`<p class="post-detail-description">${esc(item.description)}</p>`:''}
+        <h1>${esc(item.title)}</h1>${eventDateMarkup(item)}${item.description?`<p class="post-detail-description">${esc(item.description)}</p>`:''}
         ${imageURL(item.image)?`<img class="post-detail-image" src="${esc(imageURL(item.image))}" alt="Imagen de la publicación">`:''}
         ${embeddedMap(item)}
         ${isSafeURL(item.sourceUrl)?`<p><a href="${esc(isSafeURL(item.sourceUrl))}" target="_blank" rel="noopener noreferrer">Consultar fuente original</a></p>`:''}
@@ -408,6 +414,7 @@ function card(item){
     <button type="button" class="post-open" data-open="${esc(item.id)}" aria-label="Ver publicación: ${esc(item.title)}">
       <div class="post-tags"><span class="type-tag ${typeClass}${item.resolvedAt?' resolved':''}"><span class="type-symbol symbol-${typeClass}"></span>${esc(typeLabel(item))}</span>${item.category?`<span class="post-topic">${esc(item.category)}</span>`:''}</div>
       <h3>${esc(item.title)}</h3>
+      ${eventDateMarkup(item)}
       ${item.description?`<p class="post-excerpt">${esc(item.description)}</p>`:''}
       ${image}
       ${view==='mi-cuenta'&&isOwn?`<div class="pending-tag">${esc(statusLabel(item))}${item.rejectionReason?` · ${esc(short(item.rejectionReason,70))}`:''}</div>`:''}
@@ -425,7 +432,7 @@ function empty(title,desc,buttonText='',action=''){
   return `<div class="empty-state"><span class="empty-icon">⌖</span><strong>${esc(title)}</strong><p>${esc(desc)}</p>${buttonText?`<button type="button" data-action="${esc(action)}">${esc(buttonText)}</button>`:''}</div>`;
 }
 function canOpenView(next){
-  return ['explorar','publicacion'].includes(next) || (['mi-cuenta','configuracion','personas','guardados','notificaciones'].includes(next) && role!=='visitante') || (next==='moderacion' && ['lector','editor'].includes(role)) || (next==='denuncias'&&role==='editor');
+  return ['explorar','publicacion','foro','about'].includes(next) || (['mi-cuenta','configuracion','personas','guardados','notificaciones','connections'].includes(next) && role!=='visitante') || (next==='moderacion' && ['lector','editor'].includes(role)) || (next==='denuncias'&&role==='editor');
 }
 function updateNavigation(){
   document.querySelectorAll('.side-link[data-view]').forEach(button=>{
@@ -443,7 +450,7 @@ function setView(next){
   view=next; selectedId=null;
   if(next==='mi-cuenta')profileId=currentPersonId();
   document.querySelectorAll('.side-link[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===next));
-  if(['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias'].includes(next)) { render(); if(['guardados','notificaciones','denuncias'].includes(next))void refreshCommunity({quiet:true}); return; }
+  if(['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias','foro','about','connections'].includes(next)) { render(); if(['guardados','notificaciones','denuncias'].includes(next))void refreshCommunity({quiet:true}); return; }
   const headings={explorar:['PUBLICACIONES DE LA COMUNIDAD','El muro de Mazatlán'], moderacion:role==='lector'?['PANEL DE REVISIÓN','Reportes por revisar']:['PANEL EDITORIAL','Revisión pendiente']};
   $('.mini-eyebrow').textContent=headings[next][0];
   $('#feed-title').textContent=headings[next][1];
@@ -461,16 +468,25 @@ function render() {
   if(!canOpenView(view)) view='explorar';
   updateNavigation();
   document.querySelectorAll('.side-link[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
-  const alternate=['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias'].includes(view);
+  const alternate=['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias','foro','about','connections'].includes(view);
   $('#v13-panel').hidden=!['guardados','notificaciones','denuncias'].includes(view);
   $('#sign-out span:last-child').textContent=guestMode?'Iniciar sesión':'Cerrar sesión';
   $('.page-heading').hidden = alternate;
-  $('#map-panel').hidden = alternate;
+  if(view!=='explorar')undockMap();
+  $('#map-panel').hidden = view!=='explorar';$('#map-home').hidden=view!=='explorar';
+  $('#daily-bar').hidden=view!=='explorar';$('#wall-companion').hidden=view!=='explorar';$('.social-layout').classList.toggle('moderation-only',view==='moderacion');
+  $('#forum-panel').hidden=view!=='foro';$('#about-panel').hidden=view!=='about';$('#connections-panel').hidden=view!=='connections';
+  document.querySelectorAll('.v20-tabs [data-top-view]').forEach(b=>{if(b.dataset.topView===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+  $('#topic-filters').hidden=view!=='explorar';$('.compose-strip').hidden=view!=='explorar'||role==='visitante';
+  updateDaily?.(items,dateISO());
   $('.social-layout').hidden = alternate;
   $('#account-panel').hidden = view!=='configuracion';
   $('#profile-page').hidden=view!=='mi-cuenta';
   $('#post-page').hidden=view!=='publicacion';
   $('#people-page').hidden=view!=='personas';
+  if(view==='foro'){forum?.show();return;}
+  if(view==='about'){renderAbout();return;}
+  if(view==='connections'){renderConnections();return;}
   if(['guardados','notificaciones','denuncias'].includes(view)){renderV13Panel();return;}
   if(view==='configuracion'){renderAccount();return;}
   if(view==='mi-cuenta'){renderProfilePage();scheduleMapCards();return;}
@@ -479,7 +495,7 @@ function render() {
   $('#feed-mode-tabs').hidden=view!=='explorar'||role==='visitante';
   $('#feed-mode-tabs').querySelectorAll('[data-feed-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.feedMode===feedMode)));
   updateStats();
-  renderTrends();
+  renderTrends();renderTopics();
   syncAdvancedForm();
   $('#result-count').textContent='0';
   let list=[];
@@ -489,7 +505,7 @@ function render() {
     const located=list.filter(i=>i.coordinates);
     $('#feed-content').innerHTML=list.length?list.map(card).join('')
       :empty('Aún no hay publicaciones','Cuando la comunidad comparta sus primeros reportes, aparecerán aquí. Si utilizas filtros, prueba a limpiarlos.','Limpiar filtros','reset-filters');
-    if(!communityReady)$('#feed-content').insertAdjacentHTML('afterbegin',`<div class="community-notice" role="status"><strong>${communityError?'Conexión pendiente':'Conectando con la comunidad…'}</strong><p>${esc(communityError||'Cargando publicaciones reales de Supabase.')}</p><button type="button" data-action="retry-community">Reintentar conexión</button></div>`);
+    if(!communityReady)$('#feed-content').insertAdjacentHTML('afterbegin',`<div class="community-notice" role="status"><strong>${communityError?'Conexión pendiente':'Conectando con la comunidad…'}</strong><p>${esc(communityError||'Cargando publicaciones de la comunidad.')}</p><button type="button" data-action="retry-community">Reintentar conexión</button></div>`);
     setMapItems(located,selectedId);
     scheduleMapCards();
   }else{
@@ -509,9 +525,10 @@ function render() {
     setMapItems([],null);
   }
   document.querySelectorAll('#filter-row .filter-chip').forEach(btn=>{
-    const on=enabled.has(btn.dataset.filter);
+    const on=wallSection===btn.dataset.filter;
     btn.classList.toggle('is-on',on);btn.setAttribute('aria-pressed',String(on));
   });
+  refreshSelects();scheduleDock();
 }
 let locationReturnFocus=null;
 function closeLocationModal(){
@@ -576,16 +593,17 @@ function openReportForm(){
   if(role==='visitante') return notSignedIn();
   chosenCoordinates=null;
   customMapPoint=false;
-  const categories=CATEGORY_OPTIONS.citizen.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  const initialType=wallSection==='news'?'citizen':wallSection;
+  const categories=CATEGORY_OPTIONS[initialType].map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
   openDrawer(drawerHead('COMPARTE CON TU CIUDAD','Crear reporte ciudadano','El reporte quedará pendiente de revisión editorial.')+
-    `<div class="drawer-body"><p class="form-note">Tu reporte se guardará en Supabase y será visible públicamente después de la aprobación de un Editor. Evita compartir datos sensibles o acusaciones sin verificar.</p>
+    `<div class="drawer-body"><p class="form-note">Tu reporte será visible públicamente después de la aprobación de un Editor. Evita compartir datos sensibles o acusaciones sin verificar.</p>
       <form id="report-form">
-        <div class="drawer-field"><label for="report-type">Tipo de reporte</label><select id="report-type" required><option value="citizen">Aviso del día (temporal)</option><option value="infrastructure">Problema de infraestructura (persistente)</option></select></div>
+        <div class="drawer-field"><label for="report-type">Tipo de reporte</label><select id="report-type" required><option value="social" ${initialType==='social'?'selected':''}>Social</option><option value="citizen" ${initialType==='citizen'?'selected':''}>Noticias · Aviso ciudadano</option><option value="infrastructure" ${initialType==='infrastructure'?'selected':''}>Infraestructura</option></select></div>
         <div class="drawer-field"><label for="report-category">Categoría</label><select id="report-category" required>${categories}</select></div>
         <div class="drawer-field"><label for="report-title">Título *</label><input id="report-title" maxlength="100" minlength="3" required placeholder="Ej. Corte de energía eléctrica"></div>
         <div class="drawer-field"><label for="report-description">Descripción (opcional)</label><textarea id="report-description" maxlength="800" placeholder="Si lo deseas, agrega un poco más de contexto…"></textarea></div>
         <div class="drawer-field"><label for="report-place">Ubicación aproximada (opcional)</label><div class="location-choice"><select id="report-place"><option value="none" selected>Sin ubicación</option>${PLACES.map((p,idx)=>`<option value="${idx}">${esc(p.name)}</option>`).join('')}</select><button id="choose-map-point" class="soft-btn" type="button">⌖ Mapa</button></div><small id="coordinates-hint" class="picked-coords">Puedes elegir una zona o marcarla directamente en el mapa.</small></div>
-        <div class="drawer-field"><label for="report-photo">Fotografía (opcional)</label><input id="report-photo" type="file" accept="image/jpeg,image/png,image/webp"><small>JPG, PNG o WebP, máximo 4 MB. La imagen se publicará tras la aprobación del reporte.</small></div>
+        <div class="drawer-field" id="event-field" ${initialType==='social'?'':'hidden'}><label for="report-event">Fecha del evento (opcional)</label><input id="report-event" type="date" min="${dateISO()}"></div><div class="drawer-field"><label for="report-photo">Fotografía (opcional)</label><input id="report-photo" type="file" accept="image/jpeg,image/png,image/webp"><small>JPG, PNG o WebP, máximo 4 MB. La imagen se publicará tras la aprobación del reporte.</small></div>
         <div class="drawer-field"><label class="policy-check"><input type="checkbox" required><span>Confirmo que la publicación no contiene datos personales sensibles, acusaciones ni información delictiva sin verificar.</span></label></div>
         <button type="submit" class="submit-btn">Enviar reporte para revisión</button>
       </form></div>`,'center');
@@ -594,7 +612,7 @@ function openNewsForm(){
   if(role!=='editor'){showToast('Solo una cuenta con rol Editor puede añadir noticias.');return;}
   openDrawer(drawerHead('PANEL EDITORIAL','Agregar noticia','Las noticias deben tener una fuente y enlace verificables.')+
     `<div class="drawer-body"><form id="news-form">
-      <div class="drawer-field"><label for="news-title">Título</label><input id="news-title" required minlength="8" maxlength="110"></div>
+      <div class="drawer-field"><label for="news-category">Categoría</label><select id="news-category">${WALL_TOPICS.news.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select></div><div class="drawer-field"><label for="news-title">Título</label><input id="news-title" required minlength="8" maxlength="110"></div>
       <div class="drawer-field"><label for="news-desc">Resumen</label><textarea id="news-desc" required minlength="15" maxlength="800"></textarea></div>
       <div class="drawer-field"><label for="news-source">Nombre del medio o fuente</label><input id="news-source" required maxlength="100" placeholder="Nombre del medio local"></div>
       <div class="drawer-field"><label for="news-link">Enlace de la fuente</label><input id="news-link" type="url" required placeholder="https://..."></div>
@@ -660,13 +678,13 @@ async function handleReportSubmit(event){
  try{
   await requireCommunity();
   const type=$('#report-type').value,category=$('#report-category').value;
-  if(!['citizen','infrastructure'].includes(type)||!CATEGORY_OPTIONS[type].includes(category))throw Error('Categoría inválida.');
+  if(!['citizen','infrastructure','social'].includes(type)||!CATEGORY_OPTIONS[type].includes(category))throw Error('Categoría inválida.');
   const title=$('#report-title').value.trim();if(title.length<3||title.length>110)throw Error('El título debe tener de 3 a 110 caracteres.');
   const file=$('#report-photo').files[0];let photo_url=null;
   if(file)photo_url=await uploadDataImage(currentPersonId(),await compressedPhoto(file));
   await createPost({user_id:currentPersonId(),type,category,title,description:$('#report-description').value.trim(),
    location:chosenCoordinates?(customMapPoint?'Punto seleccionado en el mapa':($('#report-place').selectedOptions[0]?.textContent||'Ubicación aproximada')):'Toda la ciudad',
-   longitude:chosenCoordinates?.[0]??null,latitude:chosenCoordinates?.[1]??null,photo_url,review:'pending'});
+   longitude:chosenCoordinates?.[0]??null,latitude:chosenCoordinates?.[1]??null,photo_url,event_day:type==='social'?($('#report-event').value||null):null,review:'pending'});
   closeDrawer();await refreshCommunity();setView('mi-cuenta');showToast('Reporte enviado a revisión. Solo será público cuando un Editor lo apruebe.');
  }catch(error){showToast(error.message||'No se pudo enviar el reporte.');}
  finally{if(submit.isConnected)submit.disabled=false;}
@@ -679,7 +697,7 @@ async function handleNewsSubmit(event){
   const placeValue=$('#news-place').value,loc=placeValue==='none'?null:PLACES[Number(placeValue)];
   const title=$('#news-title').value.trim(),description=$('#news-desc').value.trim(),source_name=$('#news-source').value.trim();
   if(title.length<8||description.length<15||!source_name)throw Error('Completa todos los datos de la noticia.');
-  await createPost({user_id:currentPersonId(),type:'news',title,description,category:'Noticia',
+  await createPost({user_id:currentPersonId(),type:'news',title,description,category:$('#news-category').value,
    location:loc?.name||'Toda la ciudad',longitude:loc?.coordinates?.[0]??null,latitude:loc?.coordinates?.[1]??null,
    source_name,source_url,review:'approved'});
   closeDrawer();await refreshCommunity();setView('explorar');showToast('Noticia publicada en la comunidad.');
@@ -882,7 +900,6 @@ document.querySelector('#region-geojson-import')?.addEventListener('change',asyn
   e.target.value='';
 });
 $('#side-nav').addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b)setView(b.dataset.view);});
-$('#sidebar-report').addEventListener('click',openReportForm);
 $('#composer-report').addEventListener('click',openReportForm);
 $('#composer-create').addEventListener('click',openReportForm);
 $('#refresh-now').addEventListener('click',()=>{void refreshCommunity();});
@@ -890,10 +907,11 @@ $('#feed-mode-tabs').addEventListener('click',e=>{const b=e.target.closest('[dat
 $('#trends-list').addEventListener('click',e=>{
   const b=e.target.closest('[data-trend-open]');if(!b)return;
   const item=items.find(i=>i.id===b.dataset.trendOpen);
-  if(item)openPost(item);
+  if(item)jumpToWall(item);
 });
 $('#people-page').addEventListener('click',e=>{const p=e.target.closest('[data-profile-id]');if(p)openProfile(p.dataset.profileId);});
 $('#profile-page').addEventListener('click',e=>{
+ const c=e.target.closest('[data-connections]');if(c){connectionsId=profileId||currentPersonId();connectionsMode=c.dataset.connections;setView('connections');scrollTopPage();return;}
  const p=e.target.closest('[data-profile-id]');if(p&&p.dataset.profileId!==profileId){openProfile(p.dataset.profileId);return;}
  const open=e.target.closest('[data-open]');if(open){openPost(items.find(i=>i.id===open.dataset.open));return;}
  const tab=e.target.closest('[data-profile-tab]');if(tab){profileTab=tab.dataset.profileTab;renderProfilePage();return;}
@@ -954,7 +972,7 @@ $('#location-modal').addEventListener('keydown',e=>{
     else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
   }
 });
-$('#filter-row').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(!b)return;enabled.has(b.dataset.filter)?enabled.delete(b.dataset.filter):enabled.add(b.dataset.filter);selectedId=null;render();});
+$('#filter-row').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(!b)return;wallSection=b.dataset.filter;selectedId=null;render();});
 $('#search-input').addEventListener('input',e=>{search=e.target.value;selectedId=null;render();});
 $('#drawer-backdrop').addEventListener('click',closeDrawer);
 $('#feed-content').addEventListener('click',e=>{
@@ -989,7 +1007,7 @@ $('#drawer').addEventListener('click',e=>{
 });
 $('#drawer').addEventListener('change',e=>{
   if(e.target.id==='report-type'){
-    const type=e.target.value;
+    const type=e.target.value;$('#event-field').hidden=type!=='social';if(type!=='social')$('#report-event').value='';
     $('#report-category').innerHTML=CATEGORY_OPTIONS[type].map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
   }
   if(e.target.id==='report-place'){
@@ -1031,17 +1049,14 @@ function ensureMap() {
     showToast(`Mostrando publicaciones de ${name}.`);
   },onSelect(id){
     const item=items.find(i=>i.id===id);if(!item)return;
-    selectedId=id;render();
-    const cardEl=Array.from(document.querySelectorAll('#feed-content [data-post-id]')).find(n=>n.dataset.postId===id);
-    cardEl?.scrollIntoView({behavior:'smooth',block:'nearest'});
-    openPost(item);
+    jumpToWall(item);
   },onFail(){ $('#map-fallback').hidden=false; }})
     .then(ok=>{if(ok){$('#map-fallback').hidden=true;setMapItems(view==='explorar'?visibleForDay().filter(i=>i.coordinates):[],selectedId);setTimeout(resizeMap,400);}});
 }
 function onIdentityChange(state) {
   if (state.status==='loading') return;
   if (state.status==='signed_in') {
-    guestMode=false;currentIdentity=state;
+    if(currentPersonId()!==state.user.id)forum?.reset();guestMode=false;currentIdentity=state;
     role=state.role;
     localProfile=loadLocalProfile(state.user.id);
     clearSocialSnapshot();communityReady=false;communityError='';items=[];
@@ -1064,7 +1079,7 @@ function onIdentityChange(state) {
   }
   if(guestMode&&state.status==='signed_out')return;
   if(sharedId&&state.status==='signed_out'){enterVisitor();return;}
-  feedMode='explorar';
+  forum?.reset();feedMode='explorar';
   currentIdentity=null;socialState={saved:[],notifications:[],flags:[],commentVotes:[]};clearSocialSnapshot();communityReady=false;communityError='';items=[];
   role='visitante';
   localProfile={username:'',bio:'',avatar:null,cover:null};
@@ -1082,8 +1097,9 @@ function onIdentityChange(state) {
   $('#auth-configuration').hidden=state.status!=='unconfigured';
   if(state.status==='error')setAuthFeedback(state.message||'No fue posible conectarse con Supabase.',true);
 }
-function enterVisitor(){guestMode=true;currentIdentity=null;role='visitante';view='explorar';$('#auth-gate').hidden=true;$('.app-shell').hidden=false;render();ensureMap();void refreshCommunity();}
-$('#guest-enter').addEventListener('click',enterVisitor);
+function enterVisitor(next='explorar'){guestMode=true;currentIdentity=null;role='visitante';view=next;$('#auth-gate').hidden=true;$('.app-shell').hidden=false;render();ensureMap();void refreshCommunity();}
+$('#guest-enter').addEventListener('click',()=>enterVisitor());
+$('#auth-about').addEventListener('click',()=>enterVisitor('about'));
 
 document.querySelectorAll('[data-auth-view]').forEach(button => button.addEventListener('click',()=>setAuthView(button.dataset.authView)));
 for(const form of document.querySelectorAll('#auth-gate .auth-form')) {
@@ -1124,6 +1140,7 @@ for(const form of document.querySelectorAll('#auth-gate .auth-form')) {
   });
 }
 void loadBundledRegions().then(count=>{geoRegionsAvailable=count>0;setRegionData();if(currentIdentity)render();});
+installV20();
 void initializeAuth(onIdentityChange);
 
 function v13Button(kind,id,label){return '<button type="button" class="v13-panel-button" data-v13="'+esc(kind)+'" data-v13-id="'+esc(id||'')+'">'+esc(label)+'</button>';}
@@ -1164,3 +1181,40 @@ async function refreshNotificationsV13(){
 }
 setInterval(()=>{void refreshNotificationsV13();},30000);
 document.addEventListener('visibilitychange',()=>{void refreshNotificationsV13();});
+
+function sectionFor(item){return item.type==='citizen'?'news':item.type;}
+function topicMatch(item){return !topics[wallSection].size||[...topics[wallSection]].some(t=>matchesWallTopic(item,t));}
+function eventDateMarkup(item){return item.eventDay?'<p class="event-date">Fecha del evento: '+esc(dateLabel(item.eventDay))+'</p>':'';}
+function renderTopics(){
+ const group=$('#topic-filters'),selected=topics[wallSection];group.innerHTML=['Todos',...WALL_TOPICS[wallSection]].map(t=>{const on=t==='Todos'?!selected.size:selected.has(t);return '<button type="button" class="filter-chip '+(on?'is-on':'')+'" data-topic="'+esc(t)+'" aria-pressed="'+on+'">'+esc(t)+'</button>';}).join('');
+}
+function scrollTopPage(){const behavior=matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth';$('.main-area').scrollTo({top:0,behavior});window.scrollTo({top:0,behavior});}
+function jumpToWall(item){
+ if(!item||item.review!=='approved')return showToast('Publicación no disponible.');
+ closeExpandedMap();wallSection=sectionFor(item);setView('explorar');selectedId=item.id;render();
+ if(item.coordinates)focusMapItem(item);
+ requestAnimationFrame(()=>{const card=[...document.querySelectorAll('#feed-content [data-post-id]')].find(n=>n.dataset.postId===item.id);card?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});scheduleDock();});
+}
+function undockMap(){const home=$('#map-home'),panel=$('#map-panel');if(panel.parentNode!==home){home.append(panel);home.style.minHeight='';$('#wall-companion').classList.remove('is-docked');$('#restore-map').hidden=true;requestAnimationFrame(resizeMap);}}
+function scheduleDock(){if(dockQueued)return;dockQueued=true;requestAnimationFrame(()=>{dockQueued=false;if(view!=='explorar'||mapIsExpanded||$('#map-panel').hidden)return;const home=$('#map-home'),panel=$('#map-panel'),header=$('.v20-top');const dock=home.getBoundingClientRect().bottom<header.getBoundingClientRect().bottom+8;if(dock&&panel.parentNode===home){home.style.minHeight=home.getBoundingClientRect().height+'px';$('#map-dock').append(panel);$('#wall-companion').classList.add('is-docked');$('#restore-map').hidden=false;requestAnimationFrame(resizeMap);}else if(!dock)undockMap();});}
+function renderAbout(){
+ $('#about-panel').innerHTML='<article class="about-card"><div class="about-hero"><img src="./assets/isotipo.png" alt="MZT Conecta"><div><p>MAZATLÁN · SINALOA</p><h1>¿Quiénes somos?</h1><p>Una comunidad conectada con su ciudad.</p></div></div><div class="about-copy"><h2>MZT Conecta</h2><p>Somos un proyecto comunitario que busca acercar a las personas de Mazatlán a lo que sucede en su ciudad. Reunimos noticias, actividades, reportes de infraestructura y conversaciones en un solo lugar.</p><h2>Colaboraciones</h2><p>Queremos sumar esfuerzos con la comunidad, negocios locales y organizaciones para dar a conocer iniciativas y actividades que beneficien a Mazatlán.</p><button class="compose-button" type="button" data-about-home>Volver al muro</button></div></article>';
+}
+function renderConnections(){
+ const person=personFor(connectionsId);if(!person){$('#connections-panel').innerHTML='<p>No encontramos este perfil.</p><button data-connections-back type="button">Volver</button>';return;}
+ const all=socialState.follows||[],ids=[...new Set(all.filter(f=>connectionsMode==='followers'?f.to===connectionsId:f.from===connectionsId).map(f=>connectionsMode==='followers'?f.from:f.to))];
+ const row=id=>{const p=personFor(id);if(!p)return '';const own=id===currentPersonId(),follow=isFollowing(currentPersonId(),id);return '<div class="connection-row"><button class="person-inline" data-connection-profile="'+esc(id)+'" type="button">'+personAvatar(p)+'<span><strong>'+esc(p.name)+'</strong><small>@'+esc(p.username)+'</small></span></button>'+(own?'':'<button class="social-button" data-connection-follow="'+esc(id)+'" type="button">'+(follow?'Siguiendo ✓':'Seguir')+'</button>')+'</div>';};
+ $('#connections-panel').innerHTML='<div class="social-back-row"><button class="back-link" data-connections-back type="button">‹ Volver al perfil</button></div><div class="v20-heading"><div><p class="eyebrow">COMUNIDAD</p><h1>'+esc(person.name)+'</h1><p>@'+esc(person.username)+'</p></div></div><div class="connection-tabs"><button type="button" class="filter-chip '+(connectionsMode==='followers'?'is-on':'')+'" data-connections-mode="followers">Seguidores · '+followersOf(connectionsId)+'</button><button type="button" class="filter-chip '+(connectionsMode==='following'?'is-on':'')+'" data-connections-mode="following">Seguidos · '+followingOf(connectionsId)+'</button></div><div class="connection-list">'+(ids.map(row).join('')||'<p class="social-empty">Todavía no hay personas en esta lista.</p>')+'</div>';
+}
+function installV20(){
+ forum=createForum($('#forum-panel'),{user:currentPersonId,posts:()=>items,openPost:id=>{const p=items.find(i=>i.id===id);if(p)jumpToWall(p);else showToast('Publicación no disponible. Actualiza el muro.');},login:notSignedIn,toast:showToast});
+ updateDaily=setupDaily($('#daily-bar'),jumpToWall);updateDaily([],dateISO());
+ installSelects();
+ $('.v20-top').addEventListener('click',e=>{const b=e.target.closest('[data-top-view]');if(!b)return;setView(b.dataset.topView);scrollTopPage();});
+ $('#about-panel').addEventListener('click',e=>{if(e.target.closest('[data-about-home]')){setView('explorar');scrollTopPage();}});
+ $('#topic-filters').addEventListener('click',e=>{const b=e.target.closest('[data-topic]');if(!b)return;const set=topics[wallSection],t=b.dataset.topic;if(t==='Todos')set.clear();else if(set.has(t))set.delete(t);else set.add(t);selectedId=null;render();});
+ $('#restore-map').addEventListener('click',()=>{scrollTopPage();undockMap();});
+ $('#toggle-wall-panels').addEventListener('click',e=>{const b=e.currentTarget;const opened=b.getAttribute('aria-expanded')==='true';b.setAttribute('aria-expanded',String(!opened));$('#wall-panels').classList.toggle('collapsed',opened);});
+ $('.main-area').addEventListener('scroll',scheduleDock,{passive:true});window.addEventListener('scroll',scheduleDock,{passive:true});window.addEventListener('resize',scheduleDock);
+ $('#connections-panel').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.hasAttribute('data-connections-back')){profileId=connectionsId||currentPersonId();profileTab='publicaciones';view='mi-cuenta';render();scrollTopPage();return;}if(b.dataset.connectionsMode){connectionsMode=b.dataset.connectionsMode;renderConnections();return;}if(b.dataset.connectionProfile){openProfile(b.dataset.connectionProfile);return;}const id=b.dataset.connectionFollow;if(!id||!currentPersonId()||id===currentPersonId())return;b.disabled=true;try{await requireCommunity();await followServer(currentPersonId(),id,isFollowing(currentPersonId(),id));await refreshCommunity({quiet:true});}catch(error){showToast(error.message||'No se pudo actualizar el seguimiento.');}finally{if(b.isConnected)b.disabled=false;}});
+}

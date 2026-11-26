@@ -13,6 +13,8 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.css">
   <link rel="stylesheet" href="./src/styles.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="./src/v20.css">
   <script type="module" src="./src/main.js"></script>
 </head>
 <body>
@@ -61,7 +63,7 @@
           <label>Confirmar contraseña<input name="confirm" type="password" autocomplete="new-password" minlength="10" required></label>
           <button type="submit" class="auth-submit">Guardar nueva contraseña</button>
         </form>
-        <div id="v13-access" class="v13-access"><button type="button" id="guest-enter" class="guest-enter">Entrar como visitante</button></div>
+        <div id="v13-access" class="v13-access"><button type="button" id="guest-enter" class="guest-enter">Entrar como visitante</button><button type="button" id="auth-about" class="guest-enter">¿Quiénes somos?</button></div>
         <div id="auth-feedback" class="auth-feedback" role="status" aria-live="polite" hidden></div>
         <p id="auth-configuration" class="auth-configuration" hidden>Falta conectar Supabase. Los formularios están preparados, pero no crearán cuentas hasta introducir la URL y la clave publicable del proyecto.</p>
       </div>
@@ -85,7 +87,6 @@
         <button type="button" class="side-link" data-view="configuracion"><span class="nav-ico">⚙</span><span>Configuración</span></button>
       </nav>
       <p class="nav-heading nav-heading-lower">PARTICIPA</p>
-      <button type="button" class="side-link subtle" id="sidebar-report"><span class="nav-ico">＋</span><span>Crear un reporte</span></button>
       <div class="sidebar-grow"></div>
       <div class="community-note">
         <span class="note-sun">✳</span>
@@ -93,11 +94,14 @@
         <p>Infórmate, comparte y ayuda a tu comunidad.</p>
       </div>
       <button type="button" id="sign-out" class="side-link subtle sign-out-side"><span class="nav-ico">⇥</span><span>Cerrar sesión</span></button>
-      <div class="sidebar-bottom"><span class="mini-live"></span> COMUNIDAD DE MAZATLÁN <span>V 1.3</span></div>
+      <div class="sidebar-bottom"><span class="mini-live"></span> COMUNIDAD DE MAZATLÁN <span>V 2.0</span></div>
     </aside>
 
     <main class="main-area">
+      <header class="v20-top"><button class="v20-brand" data-top-view="explorar" type="button">MZT Conecta</button><nav class="v20-tabs" aria-label="Navegación principal"><button type="button" data-top-view="explorar" aria-current="page">Muro</button><button type="button" data-top-view="foro">Foro</button><button type="button" data-top-view="about">¿Quiénes somos?</button></nav></header>
       <div class="main-body"><section id="v13-panel" hidden></section>
+      <div id="daily-bar" class="daily-bar"><strong class="daily-label">Al día</strong><div class="daily-headlines"><button id="daily-story" type="button"></button><span id="daily-controls"><button id="daily-prev" type="button" aria-label="Anterior">‹</button><button id="daily-pause" type="button" aria-label="Pausar">Ⅱ</button><button id="daily-next" type="button" aria-label="Siguiente">›</button></span></div><div class="weather" title="Clima en Mazatlán"><span id="weather-icon"></span><strong id="weather-reading">—</strong><span id="weather-condition">Mazatlán</span></div></div>
+      <section id="forum-panel" class="v20-panel" hidden></section><section id="about-panel" class="v20-panel" hidden></section><section id="connections-panel" class="v20-panel" hidden></section>
         <div class="page-heading">
           <div>
             <p class="eyebrow"><span class="eyebrow-line"></span> EL MURO DE NUESTRA CIUDAD</p>
@@ -107,11 +111,11 @@
         </div>
 
         <!-- El mapa es una vista principal en la cabecera del muro. -->
-        <section class="map-panel map-hero" id="map-panel" aria-label="Mapa interactivo de Mazatlán">
+        <div id="map-home"><section class="map-panel map-hero" id="map-panel" aria-label="Mapa interactivo de Mazatlán">
           <div id="map" class="map-canvas"></div>
           <button id="expand-main-map" type="button" class="map-expand-button" title="Ampliar el mapa" aria-label="Ampliar mapa de Mazatlán">⛶ <span>Ampliar</span></button>
           <div class="map-fallback" id="map-fallback" hidden><span>⌖</span><strong>El mapa requiere conexión a Internet</strong><small>El muro de publicaciones sigue disponible.</small></div>
-        </section>
+        </section></div>
 
         <section id="account-panel" class="account-panel" aria-label="Mi cuenta y apariencia" hidden></section>
         <section id="profile-page" class="social-profile-page" aria-label="Perfil de la comunidad" hidden></section>
@@ -145,33 +149,29 @@
                 <div class="advanced-actions"><button type="button" id="filter-clear">Limpiar filtros</button><button type="submit" id="filter-apply">Aplicar filtros</button></div>
               </form>
               <div class="filter-heading">EXPLORAR POR CATEGORÍA</div>
-              <div class="filter-row" id="filter-row">
-                <button type="button" class="filter-chip is-on" data-filter="news"><span class="type-symbol symbol-news"></span>Noticias</button>
-                <button type="button" class="filter-chip is-on" data-filter="citizen"><span class="type-symbol symbol-citizen"></span>Comunidad</button>
-                <button type="button" class="filter-chip is-on" data-filter="infrastructure"><span class="type-symbol symbol-infrastructure"></span>Infraestructura</button>
-              </div>
+              <div class="filter-row" id="filter-row"><button type="button" class="filter-chip" data-filter="social">Social</button><button type="button" class="filter-chip is-on" data-filter="news">Noticias</button><button type="button" class="filter-chip" data-filter="infrastructure">Infraestructura</button></div><div id="topic-filters" class="filter-row topic-filters" aria-label="Temas"></div>
             </div>
             <div id="feed-content" class="feed-content" aria-live="polite"></div>
             <div class="feed-footer"><span class="shield">✓</span> Los reportes ciudadanos se revisan antes de publicarse <button type="button" id="refresh-now" class="refresh-now" title="Actualizar publicaciones desde Supabase">⟳ Actualizar</button></div>
           </section>
 
-          <aside class="right-rail" aria-label="Información de MZT Conecta">
+          <aside class="right-rail" id="wall-companion" aria-label="Información de MZT Conecta"><div id="map-dock"></div><button id="restore-map" class="v20-secondary" type="button" hidden>Volver al mapa grande</button><button type="button" id="toggle-wall-panels" class="v20-secondary" aria-expanded="true">Tendencias y actividad</button><div id="wall-panels">
             <section class="trends-card" aria-labelledby="trends-title">
               <div class="trends-heading"><span class="trends-icon" aria-hidden="true">↗</span><div><span class="rail-eyebrow">LO MÁS DESTACADO</span><h2 id="trends-title">Tendencias</h2></div></div>
-              <p class="trends-intro">Las publicaciones más votadas de los últimos 7 días.</p>
+              <p class="trends-intro">Las publicaciones más votadas de esta sección durante los últimos 7 días.</p>
               <div id="trends-list" class="trends-list" aria-live="polite"></div>
               <p class="trends-note">Las publicaciones salen de Tendencias al cumplir 7 días. Usa Actualizar para consultar novedades.</p>
             </section>
             <section class="stats-strip" id="stats-strip" aria-label="Resumen de actividad comunitaria">
               <div class="rail-section-head"><h3>Actividad del día</h3><span>EN EL MURO</span></div>
-              <div class="stat"><span class="stat-icon cyan">◉</span><span><strong id="count-news">0</strong><small>Noticias del día</small></span></div>
+              <div class="stat"><span class="stat-icon green">◇</span><span><strong id="count-social">0</strong><small>Social del día</small></span></div><div class="stat"><span class="stat-icon cyan">◉</span><span><strong id="count-news">0</strong><small>Noticias del día</small></span></div>
               <div class="stat"><span class="stat-icon amber">◇</span><span><strong id="count-citizen">0</strong><small>Reportes ciudadanos</small></span></div>
               <div class="stat"><span class="stat-icon coral">□</span><span><strong id="count-infrastructure">0</strong><small>Reportes de infraestructura</small></span></div>
               <span class="stats-disclaimer">Estadísticas basadas en las publicaciones registradas.</span>
             </section>
             <section class="rail-info"><span class="rail-eyebrow">CÓMO FUNCIONA</span><h3>Información con contexto</h3><div class="rail-info-row"><span class="rail-dot cyan-dot"></span><span>Noticias enlazadas a su fuente original</span></div><div class="rail-info-row"><span class="rail-dot amber-dot"></span><span>Reportes ciudadanos etiquetados como no oficiales</span></div><div class="rail-info-row"><span class="rail-dot coral-dot"></span><span>Problemas de infraestructura visibles hasta atenderse</span></div></section>
             <p class="rail-footnote">MZT Conecta · Comunidad compartida mediante Supabase.</p>
-          </aside>
+          </div></aside>
         </div>
       </div>
     </main>

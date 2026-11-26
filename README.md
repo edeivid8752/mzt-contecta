@@ -6,24 +6,27 @@
 
 MZT Conecta es una plataforma comunitaria creada para reunir en un mismo lugar las noticias locales, los avisos y los reportes ciudadanos de **Mazatlán, Sinaloa**. Su propósito es facilitar que las personas conozcan lo que ocurre en su ciudad, compartan información útil y participen en conversaciones sobre su comunidad.
 
-La experiencia combina un **muro de publicaciones** con un **mapa interactivo**. Los contenidos son aportaciones de la comunidad y **no representan comunicados oficiales**.
+La experiencia combina un **muro de publicaciones** con un **mapa interactivo** y un **foro comunitario**. Los contenidos son aportaciones de la comunidad y **no representan comunicados oficiales**.
 
 ## ¿Qué puedes hacer en MZT Conecta?
 
-- **Explorar el muro ciudadano:** consultar noticias, avisos y reportes compartidos por la comunidad.
-- **Consultar el mapa de Mazatlán:** localizar las publicaciones que incluyen ubicación y ampliar el mapa para explorarlas.
-- **Publicar reportes:** elegir título y categoría, con descripción, fotografía y ubicación opcionales.
-- **Filtrar publicaciones:** buscar por categoría (**Noticias, Comunidad e Infraestructura**), fecha, colonia o zona, votos y presencia de ubicación.
-- **Ver mapas dentro de publicaciones:** los reportes con coordenadas muestran su propio marcador; si no tienen ubicación, no se agrega un mapa innecesario.
-- **Interactuar con otras personas:** comentar, votar «Me sirve», visitar perfiles y seguir usuarios.
-- **Personalizar tu perfil:** agregar nombre, biografía, fotografía de perfil y portada.
-- **Crear una cuenta con correo electrónico:** el registro, el inicio de sesión y la confirmación de correo se gestionan mediante Supabase Auth.
+- **Explorar el muro ciudadano:** consultar actividades sociales, noticias, avisos y reportes de infraestructura.
+- **Consultar el mapa de Mazatlán:** localizar publicaciones, ampliar el mapa y mantenerlo visible mientras recorres el muro.
+- **Publicar reportes y actividades:** elegir una categoría, añadir fotografías, ubicación y, en actividades sociales, fecha de evento.
+- **Filtrar publicaciones:** combinar temas, fechas, zonas, votos y presencia de ubicación.
+- **Participar en el foro:** crear conversaciones, responder, votar y vincular publicaciones geolocalizadas.
+- **Interactuar con otras personas:** comentar, votar «Me sirve», visitar perfiles y consultar seguidores y seguidos.
+- **Personalizar tu perfil:** modificar nombre, biografía, fotografía, portada y colores de la interfaz.
+- **Mantenerte informado:** consultar tendencias de cada sección, titulares, eventos y clima.
+- **Guardar y compartir publicaciones:** conservar contenido de interés y compartir enlaces.
+- **Conocer MZT Conecta:** consultar la información del proyecto y su espacio de colaboraciones.
 - **Moderar la comunidad:** los reportes ciudadanos pasan por revisión antes de mostrarse en el muro general.
 
 ## Roles de la comunidad
 
 | Rol | Participación |
 | --- | --- |
+| **Visitante** | Consulta el contenido público del muro y del foro. |
 | **Ciudadano** | Publica reportes y participa mediante comentarios, votos y seguimiento de perfiles. |
 | **Lector** | Consulta publicaciones desde la sección de revisión, sin aprobarlas ni rechazarlas. |
 | **Editor** | Revisa publicaciones pendientes y puede aprobarlas, rechazarlas o resolverlas. |
@@ -31,6 +34,33 @@ La experiencia combina un **muro de publicaciones** con un **mapa interactivo**.
 Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de moderación se controlan desde la base de datos.
 
 ## Historial de actualizaciones
+
+### v2.0 — Expansión de la plataforma
+
+**Navegación e interfaz**
+- Nueva barra superior con Muro, Foro y ¿Quiénes somos?
+- Selectores personalizados en formularios y filtros, con navegación por teclado.
+- Ajustes de distribución, espaciado y adaptación a pantallas pequeñas.
+
+**Muro, mapa y publicaciones**
+- Tres secciones: Social, Noticias e Infraestructura, con categorías y filtros temáticos independientes.
+- Mapa principal que se reduce y permanece visible al recorrer el muro, con opción de ampliar o recuperar el mapa grande.
+- Marcadores diferenciados por tipo y categoría; al pulsarlos, se desplaza el muro a la publicación correspondiente.
+- Tendencias independientes por sección, con publicaciones aprobadas de los últimos siete días.
+- Mapa alternativo para dispositivos sin WebGL.
+- Publicaciones sociales con fecha de evento opcional.
+
+**Foro**
+- Conversaciones organizadas por categorías, con orden por popularidad o fecha.
+- Respuestas y votos positivos o negativos.
+- Vinculación opcional de conversaciones con publicaciones del mapa.
+
+**Perfiles y comunidad**
+- Listas de seguidores y seguidos desde los perfiles, con acceso a las personas y acciones de seguimiento.
+
+**Información y actualidad**
+- Barra Al día con titulares rotativos, próximos eventos y clima de Mazatlán.
+- Apartado ¿Quiénes somos? y espacio de colaboraciones, accesible desde el inicio de sesión.
 
 ### v1.3.1 — Se mejoró el registro de usuarios
 
