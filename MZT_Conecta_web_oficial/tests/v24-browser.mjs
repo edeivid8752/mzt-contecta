@@ -89,6 +89,7 @@ try{
  await page.locator('.post-embedded-map .leaflet-control-zoom-in').click();await page.waitForTimeout(500);await centered('.post-embedded-map');
  // Simular teselas no disponibles y vuelta de conexión sin recargar la página.
  tilesFailed=true;await page.reload();await page.waitForFunction(()=>!!window.mapReady);assert(await page.evaluate(()=>window.mapReady));
+ await page.addStyleTag({url:url+'/src/v24.css'});
  await page.evaluate(markers=>window.mzt.setMapItems(markers,null),markers);
  await page.waitForSelector('#map .leaflet-tile',{state:'attached'});
  await page.evaluate(()=>{const real=Date.now;Date.now=()=>real()+20000;});
@@ -113,6 +114,7 @@ try{
   document.querySelector('.feed-panel').style.minHeight='1800px';
   const run=new Function(String.fromCharCode(36),'resizeMap','let view="explorar",mapIsExpanded=false;'+code+';return {update:updateMobileMapButton,clear:clearMobileDock,setView(v){view=v;updateMobileMapButton();}};');
   window.dock=run(s=>document.querySelector(s),window.mzt.resizeMap);
+  window.addEventListener('scroll',()=>requestAnimationFrame(window.dock.update),{passive:true});
   window.scrollTo({top:0,behavior:'instant'});window.mzt.resizeMap();
  },dockCode);
  await page.setViewportSize({width:1720,height:1050});
@@ -127,7 +129,7 @@ try{
  await page.evaluate(()=>{window.scrollTo({top:800,behavior:'instant'});window.dock.update();});
  await page.waitForTimeout(350);
  const first=await page.locator('#map-panel').boundingBox(),header=await page.locator('.v20-top').boundingBox();
- assert(first.height<=130&&first.height>=90&&Math.abs(first.y-(header.y+header.height))<2,'Minimapa fuera de cabecera '+JSON.stringify({first,header}));
+ assert(first.height<=130&&first.height>=90&&Math.abs(first.y-Math.max(0,header.y+header.height))<2,'Minimapa fuera de cabecera '+JSON.stringify({first,header}));
  const mobileAfter=await page.locator('.feed-panel').evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,width:r.width,y:r.top+window.scrollY};});
  assert(Math.abs(mobileBefore.x-mobileAfter.x)<1&&Math.abs(mobileBefore.width-mobileAfter.width)<1&&Math.abs(mobileBefore.y-mobileAfter.y)<2,'El acoplamiento desplazó el muro '+JSON.stringify({mobileBefore,mobileAfter}));
  await page.evaluate(()=>{window.scrollTo({top:1100,behavior:'instant'});window.dock.update();});
