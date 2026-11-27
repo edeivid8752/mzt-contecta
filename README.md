@@ -39,6 +39,13 @@ Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de m
 
 ## Historial de actualizaciones
 
+### v2.2.2 — Conservación de formularios y sesión
+
+**Estabilidad y experiencia de usuario**
+- Conservación de los datos de formularios comerciales al cambiar de pestaña y regresar.
+- Revalidación de la sesión sin reconstruir la vista cuando la identidad y el rol permanecen iguales.
+- Conservación de los campos, archivos seleccionados y controles abiertos durante las actualizaciones de segundo plano.
+
 ### v2.2.1 — Corrección de los paneles comerciales
 
 **Publicidad y negocios**

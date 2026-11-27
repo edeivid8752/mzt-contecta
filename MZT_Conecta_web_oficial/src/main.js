@@ -11,7 +11,8 @@ import {loadNotificationsV13,socialAction,loadCommunity,createPost,updateProfile
 
 import {selectTrends, avatarInitial} from './community-v12.js';
 import {parseRoute, postPath, profilePath, sections, viewPaths, authPaths} from './router-v21.js';
-import {createAds} from './commerce-v221.js';
+import {createAds} from './commerce-v222.js';
+import {keepCurrentViewOnIdentity} from './session-view-v222.js';
 import {installColorPicker,selectFollowing} from './community-v13.js';
 import {createForum} from './forum-v20.js';
 import {installSelects,refreshSelects} from './selectors-v20.js';
@@ -1060,7 +1061,7 @@ function ensureMap() {
 }
 function onIdentityChange(state){
  if(state.status==='loading')return;
- const old=currentPersonId(),wasChecked=sessionChecked;sessionChecked=true;routeReady=true;
+ const old=currentPersonId(),wasChecked=sessionChecked,previousRole=role;sessionChecked=true;routeReady=true;
  $('#boot-status').hidden=true;
  const r=parseRoute(location.pathname,location.search);
  if(state.status==='signed_in'){
@@ -1069,6 +1070,10 @@ function onIdentityChange(state){
    $('#auth-configuration').hidden=true;
    if(!recoveryCompleted&&(state.recovery||recoveryAtBoot)){showAuth('recover',true);return;}
    if(r.auth==='recover'&&!recoveryCompleted){showAuth('recover',true);return;}
+   // Revalidar la misma sesión no equivale a navegar: conservar formularios y modales abiertos.
+   if(keepCurrentViewOnIdentity({wasChecked,oldId:old,newId:state.user.id,previousRole,newRole:state.role,authRoute:r.auth,recovery:state.recovery,authHidden:$('#auth-gate').hidden,shellHidden:$('.app-shell').hidden})){
+     updateNavigation();updateComposerAvatar();if(!communityReady)void refreshCommunity({quiet:true});return;
+   }
    if(r.auth){const target=returnAfterLogin||'/';returnAfterLogin=null;writeRoute(target,true);}
    applyLocation();
    if(old!==state.user.id||!wasChecked||!communityReady)void refreshCommunity();

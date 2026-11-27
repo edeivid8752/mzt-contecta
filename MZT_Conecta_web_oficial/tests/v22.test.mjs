@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {parseRoute} from '../src/router-v21.js';
-const js=readFileSync(new URL('../src/commerce-v221.js',import.meta.url),'utf8');
+const js=readFileSync(new URL('../src/commerce-v222.js',import.meta.url),'utf8');
 const helpers=js.slice(js.indexOf('export function safeLink'),js.indexOf('const statusNames')).replaceAll('export function ','function ');
 const {safeLink,localDay,activeAds,pickAds}=Function(helpers+';return {safeLink,localDay,activeAds,pickAds}')();
 assert.equal(safeLink('javascript:alert(1)'),'');
