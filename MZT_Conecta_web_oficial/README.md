@@ -1,8 +1,22 @@
-# MZT Conecta — v2.2.2
+# MZT Conecta — v2.3
 
 **[mztconecta.com](https://mztconecta.com)** · Porque lo que pasa en Mazatlán nos une.
 
 ## Historial de actualizaciones
+
+### v2.3 — Participación y seguimiento ciudadano
+
+**Reportes y comunidad**
+- Seguimiento editorial de reportes ciudadanos y de infraestructura, historial de estados, antigüedad y tiempo hasta su resolución.
+- Confirmaciones ciudadanas únicas por cuenta para reportes sin resolver.
+- Sugerencias de reportes similares por texto, categoría y proximidad cuando se indique una ubicación.
+- Ubicación del dispositivo únicamente bajo autorización; selección manual y publicaciones sin coordenadas.
+- Alertas por colonias de interés mediante el centro de notificaciones.
+
+**Participación de visitantes**
+- Publicaciones sociales y reportes con etiqueta «Publicación de un visitante», mediante sesión anónima sin perfil público.
+- Revisión editorial obligatoria y límites de envío; fotografías opcionales.
+- La publicación de visitantes requiere habilitar Anonymous Sign-Ins en Supabase Auth y revisar la protección CAPTCHA antes de abrirla al público.
 
 ### v2.2.2 — Conservación de formularios y sesión
 
@@ -99,7 +113,7 @@
 
 ## Guía técnica de actualización
 
-- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`, `supabase/upgrade_v20.sql`, `supabase/upgrade_v21.sql`, `supabase/upgrade_v22.sql`. No ejecutar scripts antiguos de instalación sobre producción.
+- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`, `supabase/upgrade_v20.sql`, `supabase/upgrade_v21.sql`, `supabase/upgrade_v22.sql`, `supabase/upgrade_v23.sql`. No ejecutar scripts antiguos de instalación sobre producción.
 - La actualización v1.3.1 utiliza los metadatos de registro solo para el nombre visible y el identificador, nunca para asignar roles.
 - El índice único de perfiles evita duplicados incluso con registros simultáneos. La consulta de disponibilidad devuelve únicamente un booleano.
 - GitHub Actions verifica JavaScript y las migraciones de PostgreSQL en una base aislada.

@@ -1,0 +1,8 @@
+.v23-progress{border:1px solid var(--line,#cbd5df);border-radius:12px;padding:12px;margin:10px 0;display:grid;gap:8px}
+.v23-progress.compact{padding:8px 12px;font-size:.86rem;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.v23-progress p,.v23-progress ol{margin:0}.v23-progress ol{padding-inline-start:22px;display:grid;gap:5px}
+.v23-progress .v23-state{font-weight:650;color:var(--primary,#285c7a)}
+.v23-progress .v23-history-date{font-size:.8em;opacity:.8}.v23-progress .v13-actions{flex-wrap:wrap}
+.v23-visitor{display:inline-flex;gap:8px;align-items:center}.v23-visitor small{display:block;opacity:.8}
+.v23-zones{margin-bottom:14px;border:1px solid var(--line,#cbd5df);padding:12px;border-radius:12px}.v23-zones ul{padding-inline-start:20px}.v23-zones li{margin:6px 0}.v23-zones button{margin-inline-start:6px}
+.v23-location-help{display:flex;gap:8px;flex-wrap:wrap;align-items:center}

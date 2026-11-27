@@ -39,6 +39,20 @@ Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de m
 
 ## Historial de actualizaciones
 
+### v2.3 — Participación y seguimiento ciudadano
+
+**Reportes y comunidad**
+- Seguimiento editorial de reportes ciudadanos y de infraestructura, historial de estados, antigüedad y tiempo hasta su resolución.
+- Confirmaciones ciudadanas únicas por cuenta para reportes sin resolver.
+- Sugerencias de reportes similares por texto, categoría y proximidad cuando se indique una ubicación.
+- Ubicación del dispositivo únicamente bajo autorización; selección manual y publicaciones sin coordenadas.
+- Alertas por colonias de interés mediante el centro de notificaciones.
+
+**Participación de visitantes**
+- Publicaciones sociales y reportes con etiqueta «Publicación de un visitante», mediante sesión anónima sin perfil público.
+- Revisión editorial obligatoria y límites de envío; fotografías opcionales.
+- La publicación de visitantes requiere habilitar Anonymous Sign-Ins en Supabase Auth y revisar la protección CAPTCHA antes de abrirla al público.
+
 ### v2.2.2 — Conservación de formularios y sesión
 
 **Estabilidad y experiencia de usuario**

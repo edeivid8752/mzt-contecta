@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {similarReports,distanceMeters,reportProgress} from '../src/community-v23.js';
+const p={id:'a',type:'infrastructure',category:'Fuga de agua',title:'Fuga de agua en avenida',description:'agua desperdiciada',coordinates:[-106.42,23.22],review:'approved',createdAt:'2026-11-24T00:00:00Z'};
+assert.equal(similarReports([p],{...p,coordinates:null}).length,1);
+assert.equal(similarReports([p],{...p,title:'Otra cosa',description:'',coordinates:[-106.4201,23.2201]}).length,1);
+assert.equal(similarReports([p],{...p,title:'Otra cosa',description:'',coordinates:null}).length,0);
+assert.equal(similarReports([{...p,review:'pending'}],p).length,0);
+assert.equal(similarReports([{...p,resolvedAt:'2026-11-25'}],p).length,0);
+assert.equal(similarReports([p],{...p,category:'Bache'}).length,0);
+assert.equal(distanceMeters(null,p.coordinates),Infinity);
+assert(distanceMeters(p.coordinates,[-106.4201,23.2201])<20);
+assert.equal(reportProgress(p,{history:[{state:'tracking',at:'2026-11-25T00:00:00Z'}],confirmations:2}).state,'tracking');
+const resolved=reportProgress({...p,resolvedAt:'2026-11-26'},{history:[{state:'resolved',at:'2026-11-26T01:00:00Z'}],confirmed:true,confirmations:3});
+assert.equal(resolved.state,'resolved');assert.equal(resolved.days,2);assert(resolved.confirmed);
+const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+assert(main.includes('Publicación de un visitante'));assert(main.includes('submitVisitorPost(input,photo)'));assert(main.includes("if(!confirm('¿Quieres solicitar tu ubicación actual?"));assert(main.includes("value=\"none\" selected"));assert(main.includes("data-v23=\"zone-add\""));
+console.log('Pruebas de seguimiento, coincidencias, ubicación opcional y visitantes v2.3 correctas');

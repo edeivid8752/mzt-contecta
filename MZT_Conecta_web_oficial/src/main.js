@@ -13,6 +13,8 @@ import {selectTrends, avatarInitial} from './community-v12.js';
 import {parseRoute, postPath, profilePath, sections, viewPaths, authPaths} from './router-v21.js';
 import {createAds} from './commerce-v222.js?rev=2';
 import {keepCurrentViewOnIdentity} from './session-view-v222.js';
+import {submitVisitorPost,reportSnapshot,zones,zoneSet,reportAction,trackedType,similarReports,reportProgress,labels as reportLabels} from './community-v23.js';
+let reportRecords={},zoneAlerts=[],zoneReady=false;
 import {installColorPicker,selectFollowing} from './community-v13.js';
 import {createForum} from './forum-v20.js';
 import {installSelects,refreshSelects} from './selectors-v20.js';
@@ -58,8 +60,10 @@ async function refreshCommunity({quiet=false}={}){
  const requestedUserId=currentPersonId(),requestedGuest=guestMode;
  try{
   const snapshot=await loadCommunity(guestMode);
+  const records=await reportSnapshot(snapshot.items.filter(trackedType).map(p=>p.id)).catch(()=>({}));
+  const alertZones=requestedUserId?await zones().catch(()=>null):[];
   if(currentPersonId()!==requestedUserId||guestMode!==requestedGuest)return;
-  setSocialSnapshot(snapshot);socialState=snapshot;
+  setSocialSnapshot(snapshot);socialState=snapshot;reportRecords=records;zoneAlerts=alertZones||[];zoneReady=alertZones!==null;
   $('#notification-count').textContent=snapshot.notifications.filter(n=>!n.read_at).length||'';
   items=snapshot.items;
   const me=snapshot.people.find(p=>p.id===currentPersonId());
@@ -121,11 +125,12 @@ function personAvatar(person,sizeClass='person-avatar'){
 }
 function updateComposerAvatar(){
   const el=$('#composer-avatar');
-  const name=currentIdentity?.profile?.display_name||'Usuario';
+  const name=currentIdentity?.profile?.display_name||'Visitante';
   const url=imageURL(localProfile.avatar);
   el.innerHTML=url?`<img src="${esc(url)}" alt="">`:esc(avatarInitial(name));
 }
 function postAuthorByline(item){
+  if(item.visitorPost)return 'Publicación de un visitante';
   const own=ownPost(item);
   const username=own?localProfile.username:personFor(authorIdFor(item))?.username;
   return username?'@'+username:'';
@@ -374,6 +379,20 @@ function renderPeoplePage(){
     <div class="people-grid">${ids.map(id=>{const person=personFor(id);if(!person)return '';return `<button type="button" class="person-tile" data-profile-id="${esc(id)}">${personAvatar(person)}<span><strong>${esc(person.name)}</strong><small>@${esc(person.username)}</small></span></button>`;}).join('')}</div>
     <p class="social-disclaimer">Perfiles de usuarios registrados en MZT Conecta.</p>`;
 }
+function reportAuthor(item,person,compact=false){
+ if(item.visitorPost)return '<span class="v23-visitor">'+personAvatar({name:'Visitante'},compact?'post-avatar':'person-avatar')+'<span><strong>Visitante</strong><small>Publicación de un visitante</small></span></span>';
+ return '<button type="button" class="person-inline" data-profile-id="'+esc(person.id)+'">'+personAvatar(person,compact?'post-avatar':'person-avatar')+'<span class="post-author-block"><strong>'+esc(person.name)+'</strong><small>'+esc(postAuthorByline(item))+'</small></span></button>';
+}
+function progressMarkup(item,compact=false){
+ if(!trackedType(item))return '';
+ const r=reportProgress(item,reportRecords[item.id]);
+ const duration=r.days===null?'':(r.state==='resolved'?'Resuelto en ':'Tiempo abierto: ')+(r.days===0?'menos de un día':r.days+' '+(r.days===1?'día':'días'));
+ const count=r.confirmations===null?'Confirmaciones no disponibles':r.confirmations+' '+(r.confirmations===1?'confirmación':'confirmaciones');
+ const active=item.review==='approved'&&!item.resolvedAt;
+ const controls=active?(currentPersonId()?'<button type="button" class="v13-panel-button" data-v23="confirm" data-v23-id="'+esc(item.id)+'" '+(r.confirmed?'disabled':'')+'>'+(r.confirmed?'Ya confirmaste':'Confirmar que persiste')+'</button>':'<button type="button" class="v13-panel-button" data-v13="login">Inicia sesión para confirmar</button>')+(role==='editor'? (r.state!=='tracking'?'<button type="button" class="v13-panel-button" data-v23="track" data-v23-id="'+esc(item.id)+'">Iniciar seguimiento</button>':'')+'<button type="button" class="v13-panel-button" data-v23="resolve" data-v23-id="'+esc(item.id)+'">Marcar como resuelto</button>':''):'';
+ const history=r.events.map(e=>'<li>'+esc(reportLabels[e.state])+' <span class="v23-history-date">'+esc(e.legacy?String(e.at).slice(0,10):new Date(e.at).toLocaleString('es-MX'))+'</span></li>').join('');
+ return '<section class="v23-progress'+(compact?' compact':'')+'" aria-label="Seguimiento del reporte"><strong class="v23-state">'+esc(reportLabels[r.state]||statusLabel(item))+'</strong>'+(duration?'<span>'+esc(duration)+'</span>':'')+'<span>'+esc(count)+'</span>'+(!compact?'<h3>Historial de seguimiento</h3><ol>'+history+'</ol><div class="v13-actions">'+controls+'</div><small>Las confirmaciones son aportaciones comunitarias; no acreditan una intervención oficial.</small>':'')+'</section>';
+}
 function renderPostPage(){
   const item=items.find(i=>i.id===selectedId);
   if(!item){$('#post-page').innerHTML='<p role="status">'+(communityReady?'Publicación no disponible.':'Cargando publicación…')+'</p><button class="back-link" data-action="back-post" type="button">‹ Volver al muro</button>';return;}
@@ -386,7 +405,7 @@ function renderPostPage(){
     :role==='editor'&&item.type==='infrastructure'&&item.review==='approved'&&!item.resolvedAt?`<div class="post-moderation"><strong>Seguimiento</strong><button type="button" data-resolve="${esc(item.id)}">Marcar como atendido</button></div>`:'';
   $('#post-page').innerHTML=`<div class="social-back-row"><button class="back-link" type="button" data-action="back-post">‹ Volver a las publicaciones</button><span>PUBLICACIÓN</span></div>
     <article class="social-post-detail">
-      <div class="post-detail-author"><button type="button" class="person-inline" data-profile-id="${esc(person.id)}">${personAvatar(person)}<span><strong>${esc(person.name)}</strong><small>${esc(postAuthorByline(item))}</small></span></button><span class="post-detail-time">${esc(item.day)} · ${esc(item.clock)}</span></div>
+      <div class="post-detail-author">${reportAuthor(item,person)}<span class="post-detail-time">${esc(item.day)} · ${esc(item.clock)}</span></div>
       <div class="post-detail-content"><span class="type-tag ${esc(item.type)}">${esc(typeLabel(item))}</span>${item.category?`<span class="post-topic">${esc(item.category)}</span>`:''}
         <h1>${esc(item.title)}</h1>${eventDateMarkup(item)}${item.description?`<p class="post-detail-description">${esc(item.description)}</p>`:''}
         ${imageURL(item.image)?`<img class="post-detail-image" src="${esc(imageURL(item.image))}" alt="Imagen de la publicación">`:''}
@@ -396,6 +415,7 @@ function renderPostPage(){
       </div>
       <div class="post-detail-actions"><button type="button" data-action="helpful" class="${helpfulVotes.has(item.id)?'voted':''}" aria-pressed="${helpfulVotes.has(item.id)}">▲ ${voteCount(item)} · Me sirve</button><span>▤ ${rows.length} comentarios</span>${ownAuthor?'<span>Tu publicación</span>':''}</div>
       ${moderation}
+      ${progressMarkup(item)}
       ${v13PostActions(item)}
       <section class="post-comments" aria-labelledby="comments-heading"><div class="comment-heading"><h2 id="comments-heading">Comentarios</h2><span>${rows.length}</span></div>
         ${guestMode?'<p class="social-local-note"><button class="v13-panel-button" type="button" data-v13="login">Inicia sesión para comentar</button></p>':item.review!=='approved'?'<p class="social-local-note">Podrás comentar cuando un editor apruebe la publicación.</p>':'<form id="comment-form"><label for="comment-body" class="sr-only">Escribe un comentario</label><textarea id="comment-body" required minlength="1" maxlength="500" rows="3" placeholder="Escribe un comentario respetuoso…"></textarea><div><small>Máximo 500 caracteres · Comentario público</small><button type="submit" class="social-button">Comentar</button></div></form>'}
@@ -411,7 +431,7 @@ function card(item){
   const image=imageURL(item.image)?`<img class="post-image" src="${esc(imageURL(item.image))}" alt="Imagen del reporte ciudadano" loading="lazy">`:'';
   const socialAuthor=personFor(authorIdFor(item))||{id:authorIdFor(item),name:author,username:'comunidad_mzt'};
   return `<article class="event-card ${selectedId===item.id?'selected':''}" data-post-id="${esc(item.id)}">
-    <div class="post-byline"><button type="button" class="person-inline" data-profile-id="${esc(socialAuthor.id)}">${personAvatar(socialAuthor,'post-avatar')}<span class="post-author-block"><strong>${esc(isOwn?author:socialAuthor.name)}</strong><small>${esc(postAuthorByline(item))}</small></span></button><span class="post-age">${esc(item.clock||'')}</span></div>
+    <div class="post-byline">${reportAuthor(item,{...socialAuthor,name:isOwn?author:socialAuthor.name},true)}<span class="post-age">${esc(item.clock||'')}</span></div>
     <a class="post-open" href="${esc(postPath(item))}" data-open="${esc(item.id)}" aria-label="Ver publicación: ${esc(item.title)}">
       <div class="post-tags"><span class="type-tag ${typeClass}${item.resolvedAt?' resolved':''}"><span class="type-symbol symbol-${typeClass}"></span>${esc(typeLabel(item))}</span>${item.category?`<span class="post-topic">${esc(item.category)}</span>`:''}</div>
       <h3>${esc(item.title)}</h3>
@@ -421,6 +441,7 @@ function card(item){
       ${view==='mi-cuenta'&&isOwn?`<div class="pending-tag">${esc(statusLabel(item))}${item.rejectionReason?` · ${esc(short(item.rejectionReason,70))}`:''}</div>`:''}
     </a>
     ${embeddedMap(item)}
+    ${progressMarkup(item,true)}
     <div class="post-actions">
       <button type="button" class="post-action ${voted?'voted':''}" data-action="helpful" data-id="${esc(item.id)}" aria-pressed="${String(voted)}"><span aria-hidden="true">▲</span> ${voteCount(item)} · ${voted?'Marcado útil':'Me sirve'}</button>
       <button type="button" class="post-action" data-open="${esc(item.id)}"><span aria-hidden="true">▤</span> Ver detalles</button>
@@ -482,7 +503,7 @@ function render() {
   $('#daily-bar').hidden=view!=='explorar';$('#wall-companion').hidden=view!=='explorar';$('.social-layout').classList.toggle('moderation-only',view==='moderacion');
   $('#forum-panel').hidden=view!=='foro';$('#about-panel').hidden=view!=='about';$('#connections-panel').hidden=view!=='connections';
   document.querySelectorAll('.v20-tabs [data-top-view]').forEach(b=>{if(b.dataset.topView===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
-  $('#topic-filters').hidden=view!=='explorar';$('.compose-strip').hidden=view!=='explorar'||role==='visitante';
+  $('#topic-filters').hidden=view!=='explorar';$('.compose-strip').hidden=view!=='explorar';
   updateDaily?.(items,dateISO());
   $('.social-layout').hidden = alternate;
   $('#account-panel').hidden = view!=='configuracion';
@@ -596,19 +617,19 @@ function drawerHead(eyebrow,title,desc=''){
 }
 function notSignedIn(){returnAfterLogin=location.pathname+location.search;showAuth('login');}
 function openReportForm(){
-  if(role==='visitante') return notSignedIn();
   chosenCoordinates=null;
   customMapPoint=false;
   const initialType=wallSection==='news'?'citizen':wallSection;
   const categories=CATEGORY_OPTIONS[initialType].map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
   openDrawer(drawerHead('COMPARTE CON TU CIUDAD','Crear reporte ciudadano','El reporte quedará pendiente de revisión editorial.')+
     `<div class="drawer-body"><p class="form-note">Tu reporte será visible públicamente después de la aprobación de un Editor. Evita compartir datos sensibles o acusaciones sin verificar.</p>
-      <form id="report-form">
+      <form id="report-form">${role==='visitante'?'<p class="form-note">Se enviará como Publicación de un visitante. Se usará una sesión anónima de este navegador; máximo tres reportes cada 24 horas y revisión obligatoria.</p>':''}
         <div class="drawer-field"><label for="report-type">Tipo de reporte</label><select id="report-type" required><option value="social" ${initialType==='social'?'selected':''}>Social</option><option value="citizen" ${initialType==='citizen'?'selected':''}>Noticias · Aviso ciudadano</option><option value="infrastructure" ${initialType==='infrastructure'?'selected':''}>Infraestructura</option></select></div>
         <div class="drawer-field"><label for="report-category">Categoría</label><select id="report-category" required>${categories}</select></div>
         <div class="drawer-field"><label for="report-title">Título *</label><input id="report-title" maxlength="100" minlength="3" required placeholder="Ej. Corte de energía eléctrica"></div>
         <div class="drawer-field"><label for="report-description">Descripción (opcional)</label><textarea id="report-description" maxlength="800" placeholder="Si lo deseas, agrega un poco más de contexto…"></textarea></div>
-        <div class="drawer-field"><label for="report-place">Ubicación aproximada (opcional)</label><div class="location-choice"><select id="report-place"><option value="none" selected>Sin ubicación</option>${PLACES.map((p,idx)=>`<option value="${idx}">${esc(p.name)}</option>`).join('')}</select><button id="choose-map-point" class="soft-btn" type="button">⌖ Mapa</button></div><small id="coordinates-hint" class="picked-coords">Puedes elegir una zona o marcarla directamente en el mapa.</small></div>
+        <div class="drawer-field"><label for="report-place">Ubicación aproximada (opcional)</label><div class="location-choice"><select id="report-place"><option value="none" selected>Sin ubicación</option>${PLACES.map((p,idx)=>`<option value="${idx}">${esc(p.name)}</option>`).join('')}</select><button id="choose-map-point" class="soft-btn" type="button">⌖ Mapa</button></div><small id="coordinates-hint" class="picked-coords">Puedes elegir una zona o marcarla directamente en el mapa.</small><div class="v23-location-help"><button type="button" class="soft-btn" id="use-device-location">Usar mi ubicación actual</button><small>Solo con tu permiso; el GPS es opcional. La ubicación elegida se hará pública.</small></div></div>
+        <div class="drawer-field"><label for="report-zone">Colonia (opcional)</label><input id="report-zone" maxlength="100" list="v23-places" placeholder="Nombre de la colonia"><datalist id="v23-places">${PLACES.map(p=>'<option value="'+esc(p.name)+'"></option>').join('')}</datalist><small>Permite recibir alertas sobre esta zona sin compartir coordenadas.</small></div>
         <div class="drawer-field" id="event-field" ${initialType==='social'?'':'hidden'}><label for="report-event">Fecha del evento (opcional)</label><input id="report-event" type="date" min="${dateISO()}"></div><div class="drawer-field"><label for="report-photo">Fotografía (opcional)</label><input id="report-photo" type="file" accept="image/jpeg,image/png,image/webp"><small>JPG, PNG o WebP, máximo 4 MB. La imagen se publicará tras la aprobación del reporte.</small></div>
         <div class="drawer-field"><label class="policy-check"><input type="checkbox" required><span>Confirmo que la publicación no contiene datos personales sensibles, acusaciones ni información delictiva sin verificar.</span></label></div>
         <button type="submit" class="submit-btn">Enviar reporte para revisión</button>
@@ -679,20 +700,27 @@ async function compressedPhoto(file){
   }finally{URL.revokeObjectURL(url);}
 }
 async function handleReportSubmit(event){
- event.preventDefault();if(role==='visitante')return notSignedIn();
- const form=event.target,submit=form.querySelector('[type=submit]');submit.disabled=true;
+ event.preventDefault();
+ const form=event.target,submit=form.querySelector('[type=submit]');if(submit.disabled)return;submit.disabled=true;
+ const visitor=role==='visitante',uid=currentPersonId();let uploaded=null,committed=false;
  try{
   await requireCommunity();
   const type=$('#report-type').value,category=$('#report-category').value;
   if(!['citizen','infrastructure','social'].includes(type)||!CATEGORY_OPTIONS[type].includes(category))throw Error('Categoría inválida.');
   const title=$('#report-title').value.trim();if(title.length<3||title.length>110)throw Error('El título debe tener de 3 a 110 caracteres.');
-  const file=$('#report-photo').files[0];let photo_url=null;
-  if(file)photo_url=await uploadDataImage(currentPersonId(),await compressedPhoto(file));
-  await createPost({user_id:currentPersonId(),type,category,title,description:$('#report-description').value.trim(),
-   location:chosenCoordinates?(customMapPoint?'Punto seleccionado en el mapa':($('#report-place').selectedOptions[0]?.textContent||'Ubicación aproximada')):'Toda la ciudad',
-   longitude:chosenCoordinates?.[0]??null,latitude:chosenCoordinates?.[1]??null,photo_url,event_day:type==='social'?($('#report-event').value||null):null,review:'pending'});
-  closeDrawer();await refreshCommunity();setView('mi-cuenta');showToast('Reporte enviado a revisión. Solo será público cuando un Editor lo apruebe.');
- }catch(error){showToast(error.message||'No se pudo enviar el reporte.');}
+  const description=$('#report-description').value.trim(),coordinates=chosenCoordinates?.slice()||null,alert_zone=$('#report-zone').value.trim()||null;
+  const suggestions=similarReports(items,{type,category,title,description,coordinates});
+  if(suggestions.length&&!confirm('Encontramos reportes similares:\n'+suggestions.map(x=>'• '+x.post.title+(Number.isFinite(x.distance)&&x.distance<=300?' (ubicación cercana)':'')).join('\n')+'\n\n¿Quieres enviar tu reporte de todos modos?'))return;
+  const input={type,category,title,description,alert_zone,
+   location:coordinates?($('#report-place').selectedOptions[0]?.textContent||'Ubicación aproximada'):(alert_zone||'Toda la ciudad'),
+   longitude:coordinates?.[0]??null,latitude:coordinates?.[1]??null,event_day:type==='social'?($('#report-event').value||null):null,review:'pending'};
+  const file=$('#report-photo').files[0],photo=file?await compressedPhoto(file):null;
+  if(visitor!== (role==='visitante')||uid!==currentPersonId())throw Error('La sesión cambió. Vuelve a intentar.');
+  if(visitor)await submitVisitorPost(input,photo);
+  else{if(photo)uploaded=await uploadDataImage(uid,photo);if(uid!==currentPersonId())throw Error('La sesión cambió.');await createPost({...input,user_id:uid,photo_url:uploaded});}
+  committed=true;
+  closeDrawer();await refreshCommunity();setView(visitor?'explorar':'mi-cuenta');showToast('Reporte enviado a revisión. Solo será público cuando un Editor lo apruebe.');
+ }catch(error){if(uploaded&&!committed)try{await removeImageServer(uploaded);}catch{}showToast(error.message||'No se pudo enviar el reporte.');}
  finally{if(submit.isConnected)submit.disabled=false;}
 }
 async function handleNewsSubmit(event){
@@ -752,6 +780,20 @@ function pickLocation(){
     onLoad:()=>{$('#picker-loading').hidden=true;$('#picker-confirm').disabled=false;},
     onFail:()=>{$('#picker-loading').textContent='No fue posible cargar el mapa. Cierra esta ventana y elige una ubicación aproximada.';$('#picker-confirm').disabled=true;}
   });
+}
+function useDeviceLocation(){
+ const form=$('#report-form');if(!form||!navigator.geolocation)return showToast('La ubicación del dispositivo no está disponible. Puedes continuar sin ella.');
+ if(!confirm('¿Quieres solicitar tu ubicación actual? Si la conservas, será pública al aprobarse el reporte.'))return;
+ const button=$('#use-device-location');button.disabled=true;
+ navigator.geolocation.getCurrentPosition(pos=>{
+  if(!form.isConnected)return;
+  chosenCoordinates=[Number(pos.coords.longitude.toFixed(4)),Number(pos.coords.latitude.toFixed(4))];customMapPoint=true;
+  const choice=$('#report-place');let option=choice.querySelector('option[value="gps-selected"]');
+  if(!option){option=new Option('Ubicación del dispositivo (aproximada)','gps-selected');choice.add(option);}
+  choice.value='gps-selected';choice.dispatchEvent(new Event('change',{bubbles:true}));
+  $('#coordinates-hint').textContent='Ubicación seleccionada: '+chosenCoordinates[1]+', '+chosenCoordinates[0]+'. Puedes quitarla seleccionando Sin ubicación.';
+  button.disabled=false;
+ },()=>{if(form.isConnected){button.disabled=false;showToast('No se obtuvo tu ubicación. Puedes continuar sin GPS.');}},{enableHighAccuracy:false,timeout:10000,maximumAge:0});
 }
 function confirmPicker(){
   if(!pickerCoords || $('#picker-confirm').disabled) return;
@@ -1007,6 +1049,7 @@ $('#drawer').addEventListener('click',e=>{
   const action=e.target.closest('[data-action]');
   if(action){if(action.dataset.action==='close-drawer')closeDrawer();return;}
   if(e.target.closest('#choose-map-point')){pickLocation();return;}
+  if(e.target.closest('#use-device-location')){useDeviceLocation();return;}
   const resolveBtn=e.target.closest('[data-resolve]');if(resolveBtn){resolveReport(resolveBtn.dataset.resolve);return;}
   const reviewBtn=e.target.closest('[data-review]');if(reviewBtn){review(reviewBtn.dataset.review,reviewBtn.dataset.decision);return;}
   const focusBtn=e.target.closest('[data-focus]');if(focusBtn){const i=items.find(x=>x.id===focusBtn.dataset.focus);if(i)openLocationModal(i);return;}
@@ -1080,7 +1123,7 @@ function onIdentityChange(state){
    return;
  }
  if(wasChecked&&!old&&guestMode&&state.status==='signed_out'){if(r.auth)showAuth(r.auth,true);else if(!$('#auth-gate').hidden)applyLocation();return;}
- forum?.reset();currentIdentity=null;role='visitante';guestMode=true;feedMode='explorar';void ads?.sync();
+ forum?.reset();reportRecords={};zoneAlerts=[];zoneReady=false;currentIdentity=null;role='visitante';guestMode=true;feedMode='explorar';void ads?.sync();
  socialState={saved:[],notifications:[],flags:[],commentVotes:[]};clearSocialSnapshot();items=[];communityReady=false;communityError='';localProfile={username:'',bio:'',avatar:null,cover:null};
  closePublicProfile();closeDrawer();closePicker();closeLocationModal();closeExpandedMap();destroyEmbeddedMaps();
  applyLocation();$('#auth-configuration').hidden=state.status!=='unconfigured';
@@ -1141,10 +1184,10 @@ void initializeAuth(onIdentityChange);
 function v13Button(kind,id,label){return '<button type="button" class="v13-panel-button" data-v13="'+esc(kind)+'" data-v13-id="'+esc(id||'')+'">'+esc(label)+'</button>';}
 function v13PostActions(item){return '<div class="v13-actions">'+(item.review==='approved'?v13Button('share',item.id,'Compartir')+v13Button('save',item.id,socialState.saved.includes(item.id)?'Quitar de guardados':'Guardar')+v13Button('flag-post',item.id,'Denunciar'):'')+(ownPost(item)?(item.type!=='news'?v13Button('edit-post',item.id,'Editar'):'')+v13Button('delete-post',item.id,'Eliminar'):'')+'</div>';}
 function v13CommentActions(c,rows){const parent=rows.find(r=>r.id===c.parentId),votes=socialState.commentVotes.filter(v=>v.comment_id===c.id);return (parent?'<small class="comment-reply-note">En respuesta a @'+esc(personFor(parent.authorId)?.username||'usuario')+'</small>':'')+(c.editedAt?'<small> · Editado</small>':'')+'<div class="v13-actions">'+v13Button('reply',c.id,'Responder')+v13Button('vote-comment',c.id,guestMode?'Votar':'▲ '+votes.length)+v13Button('flag-comment',c.id,'Denunciar')+(c.authorId===currentPersonId()?v13Button('edit-comment',c.id,'Editar'):'')+'</div>';}
-const notificationText={approved:'Tu publicación fue aprobada',rejected:'Tu publicación fue rechazada',follow:'Tienes un nuevo seguidor',comment:'Comentaron tu publicación',reply:'Respondieron a tu comentario',mention:'Te mencionaron en un comentario'};
+const notificationText={zone_alert:'Nueva publicación en una colonia de interés',approved:'Tu publicación fue aprobada',rejected:'Tu publicación fue rechazada',follow:'Tienes un nuevo seguidor',comment:'Comentaron tu publicación',reply:'Respondieron a tu comentario',mention:'Te mencionaron en un comentario'};
 function renderV13Panel(){const p=$('#v13-panel');let body='';
  if(view==='guardados'){body='<h2>Publicaciones guardadas</h2>'+items.filter(i=>socialState.saved.includes(i.id)&&i.review==='approved').map(i=>'<div class="v13-panel-row">'+esc(i.title)+' '+v13Button('open',i.id,'Ver publicación')+v13Button('save',i.id,'Quitar')+'</div>').join('');}
- if(view==='notificaciones'){body='<h2>Notificaciones</h2>'+socialState.notifications.map(n=>'<div class="v13-panel-row"><strong>'+esc(notificationText[n.kind]||n.kind)+'</strong><p>'+esc(new Date(n.created_at).toLocaleString('es-MX'))+'</p>'+(!n.read_at?v13Button('read',n.id,'Marcar leída'):'Leída')+(n.post_id?v13Button('open',n.post_id,'Ver publicación'):'')+'</div>').join('');}
+ if(view==='notificaciones'){body='<h2>Notificaciones</h2><section class="v23-zones"><h3>Alertas por colonia</h3><p>Recibe avisos dentro de MZT Conecta cuando se aprueben publicaciones que indiquen una de tus colonias. No se usa GPS.</p>'+(zoneReady?'<button type="button" class="v13-panel-button" data-v23="zone-add">Agregar colonia</button><ul>'+zoneAlerts.map(z=>'<li>'+esc(z)+' <button type="button" class="v13-panel-button" data-v23="zone-remove" data-v23-id="'+esc(z)+'">Desactivar</button></li>').join('')+'</ul>':'<p>No se pudieron cargar las preferencias.</p>')+'</section>'+socialState.notifications.map(n=>'<div class="v13-panel-row"><strong>'+esc(notificationText[n.kind]||n.kind)+'</strong><p>'+esc(new Date(n.created_at).toLocaleString('es-MX'))+'</p>'+(!n.read_at?v13Button('read',n.id,'Marcar leída'):'Leída')+(n.post_id?v13Button('open',n.post_id,'Ver publicación'):'')+'</div>').join('');}
  if(view==='denuncias'){body='<h2>Denuncias de la comunidad</h2>'+socialState.flags.filter(f=>f.status==='pending').map(f=>'<div class="v13-panel-row"><strong>'+esc(f.reason)+'</strong><p>'+esc(f.post_id?'Publicación':'Comentario')+' · '+esc(f.post_id||f.comment_id)+'</p>'+v13Button('open',f.post_id||items.find(i=>commentsFor(i.id).some(c=>c.id===f.comment_id))?.id,'Ver contenido')+v13Button('review-flag',f.id,'Marcar revisada')+'</div>').join('');}
  p.innerHTML=body||'<p>Sin resultados.</p>';
 }
@@ -1166,6 +1209,18 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-v13]
  }catch(error){showToast(error.message||'No se pudo completar la acción.');}finally{if(b.isConnected)b.disabled=false;}
 });
 
+document.addEventListener('click',async e=>{
+ const b=e.target.closest('[data-v23]');if(!b)return;
+ if(!currentPersonId())return notSignedIn();
+ const action=b.dataset.v23,id=b.dataset.v23Id,user=currentPersonId();b.disabled=true;
+ try{
+  if(action==='zone-add'){const data=await promptV13('Agregar colonia de interés',[{name:'zone',label:'Nombre de la colonia',max:100,required:true}]);if(!data)return;if(user!==currentPersonId())return;await zoneSet(data.zone,true);zoneAlerts=await zones();zoneReady=true;if(view==='notificaciones')renderV13Panel();}
+  else if(action==='zone-remove'){await zoneSet(id,false);zoneAlerts=await zones();zoneReady=true;if(view==='notificaciones')renderV13Panel();}
+  else if(action==='resolve'){await resolveReport(id);return;}
+  else{await reportAction(action,id);await refreshCommunity({quiet:true});}
+  showToast('Cambios guardados.');
+ }catch(error){showToast(error.message||'No se pudo completar la operación.');}finally{if(b.isConnected)b.disabled=false;}
+});
 function v13MentionMarkup(value){return String(value||'').split(/(@[a-zA-Z0-9_.]{1,30})/g).map(part=>{if(!part.startsWith('@'))return esc(part);const id=localPersonIds().find(i=>personFor(i)?.username?.toLowerCase()===part.slice(1).toLowerCase());return id?'<button type="button" class="v13-mention" data-profile-id="'+esc(id)+'">'+esc(part)+'</button>':esc(part);}).join('');}
 if('serviceWorker' in navigator&&window.isSecureContext)window.addEventListener('load',()=>{navigator.serviceWorker.register('/service-worker.js').catch(()=>{});});
 

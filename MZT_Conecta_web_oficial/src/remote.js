@@ -62,7 +62,7 @@ function mapV13Post(p){
   clock:new Date(p.created_at).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false}),
   createdAt:p.created_at,review:p.review,reviewedAt:p.reviewed_at,approvedAt:p.approved_at,resolvedAt:p.resolved_at,
   eventDay:p.event_day||null,rejectionReason:p.rejection_reason,image:p.photo_url,sourceName:p.source_name,sourceUrl:p.source_url,
-  owner:'remote',ownerUserId:p.user_id}))(p);
+  visitorPost:!!p.visitor_post,alertZone:p.alert_zone||'',owner:'remote',ownerUserId:p.user_id}))(p);
 }
 function mapV13Comment(c){return {id:c.id,postId:c.post_id,authorId:c.user_id,text:c.body,createdAt:c.created_at,parentId:c.parent_id||null,editedAt:c.edited_at||null};}
 export async function socialAction(kind,id,user,extra){
