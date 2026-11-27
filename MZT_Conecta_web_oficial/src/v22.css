@@ -21,3 +21,5 @@
 @media(prefers-reduced-motion:reduce){#mobile-map-return{animation:none!important}}
 
 #commerce-panel:not([hidden]){display:block;min-height:160px;width:100%}
+
+.commerce-draft{display:grid;gap:6px;color:#627587;font-size:12px}.commerce-draft small:empty{display:none}.commerce-draft .soft-btn{justify-self:start;font-size:12px}.commerce-draft [hidden]{display:none!important}

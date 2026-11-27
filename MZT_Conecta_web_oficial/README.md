@@ -10,6 +10,7 @@
 - Conservación de los datos de formularios comerciales al cambiar de pestaña y regresar.
 - Revalidación de la sesión sin reconstruir la vista cuando la identidad y el rol permanecen iguales.
 - Conservación de los campos, archivos seleccionados y controles abiertos durante las actualizaciones de segundo plano.
+- Guardado y recuperación de borradores comerciales en la pestaña, incluso después de una recarga, con conservación de imágenes y eliminación tras el envío.
 
 ### v2.2.1 — Corrección de los paneles comerciales
 

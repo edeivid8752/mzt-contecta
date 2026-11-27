@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {createCommerceDrafts} from '../src/commerce-drafts-v222.js';
 import {keepCurrentViewOnIdentity as keep} from '../src/session-view-v222.js';
 const current={wasChecked:true,oldId:'a',newId:'a',previousRole:'editor',newRole:'editor',authHidden:true,shellHidden:false};
 assert(keep(current));
@@ -16,7 +17,7 @@ globalThis.window={};
 let uid='user-a',which='business',level='owner',requests=0;
 const client={from(){return {select(){return this},eq(){return this},order(){return this},maybeSingle:async()=>({data:level?{access_level:level}:null,error:null}),limit:async()=>{requests++;return {data:[],error:null}}}},rpc:async()=>({data:[],error:null})};
 const code=source.replace(/^import .*$/gm,'').replaceAll('export function ','function ');
-const create=Function('getAuthClient','uploadDataImage','removeImageServer','setInterval',code+';return createAds;')(async()=>client,async()=>{},async()=>{},()=>{});
+const create=Function('getAuthClient','uploadDataImage','removeImageServer','setInterval','createCommerceDrafts',code+';return createAds;')(async()=>client,async()=>{},async()=>{},()=>{},createCommerceDrafts);
 const panel=elements.get('#commerce-panel');
 const ads=create({user:()=>uid,view:()=>which,nav(){},toast(){},compress(){},login(){},navigate(){}});
 await ads.sync();await ads.show(which);

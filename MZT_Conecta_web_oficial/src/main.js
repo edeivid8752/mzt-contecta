@@ -11,7 +11,7 @@ import {loadNotificationsV13,socialAction,loadCommunity,createPost,updateProfile
 
 import {selectTrends, avatarInitial} from './community-v12.js';
 import {parseRoute, postPath, profilePath, sections, viewPaths, authPaths} from './router-v21.js';
-import {createAds} from './commerce-v222.js';
+import {createAds} from './commerce-v222.js?rev=2';
 import {keepCurrentViewOnIdentity} from './session-view-v222.js';
 import {installColorPicker,selectFollowing} from './community-v13.js';
 import {createForum} from './forum-v20.js';
@@ -874,8 +874,8 @@ $('#public-profile-dialog').addEventListener('keydown',e=>{
 });
 $('#sign-out').addEventListener('click', async () => {
   if(guestMode)return notSignedIn();
-  const button=$('#sign-out');button.disabled=true;
-  try {await logoutAccount();returnAfterLogin=null;writeRoute('/',true);onIdentityChange({status:'signed_out'});}
+  const button=$('#sign-out'),signedOutId=currentPersonId();button.disabled=true;
+  try {await logoutAccount();ads?.clearDrafts(signedOutId);returnAfterLogin=null;writeRoute('/',true);onIdentityChange({status:'signed_out'});}
   catch {showToast('No se pudo cerrar sesión. Intenta de nuevo.');}
   finally {button.disabled=false;}
 });

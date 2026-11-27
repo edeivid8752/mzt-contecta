@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {createCommerceDrafts} from '../src/commerce-drafts-v222.js';
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 assert.equal((html.match(/id="commerce-panel"/g)||[]).length,1);
 assert(!html.includes('id="ads-panel"'));
@@ -18,8 +19,8 @@ globalThis.testCommerceClient={
  async rpc(name){return {data:[],error:null};}
 };
 const code=source.replace(/^import .*$/gm,'').replace('export function createAds','function createAds').replaceAll('export function ','function ');
-const build=Function('getAuthClient','uploadDataImage','removeImageServer','setInterval',code+';return createAds;');
-const createAds=build(async()=>globalThis.testCommerceClient,async()=>{},async()=>{},()=>{});
+const build=Function('getAuthClient','uploadDataImage','removeImageServer','setInterval','createCommerceDrafts',code+';return createAds;');
+const createAds=build(async()=>globalThis.testCommerceClient,async()=>{},async()=>{},()=>{},createCommerceDrafts);
 const panel=elements.get('#commerce-panel');
 const instance=createAds({user:()=>uid,view:()=>which,nav(){},toast(){},compress(){},login(){},navigate(){}});
 await instance.show('business');
