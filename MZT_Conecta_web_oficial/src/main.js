@@ -16,7 +16,7 @@ import {keepCurrentViewOnIdentity} from './session-view-v222.js';
 import {submitVisitorPost,reportSnapshot,zones,zoneSet,reportAction,trackedType,similarReports,reportProgress,labels as reportLabels} from './community-v23.js';
 let reportRecords={},zoneAlerts=[],zoneReady=false;
 import {installColorPicker,selectFollowing} from './community-v13.js';
-import {createForum} from './forum-v20.js?v=2.4.5';
+import {createForum} from './forum-v20.js?v=2.4.5-r2';
 import {installSelects,refreshSelects} from './selectors-v20.js';
 import {setupDaily,mazatlanDay} from './daily-bar.js?v=2.4.1';
 import {officialToday,newApprovedIds,installPhotoViewer} from './experience-v243.js?v=2.4.3';

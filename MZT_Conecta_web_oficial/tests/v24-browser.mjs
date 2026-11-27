@@ -190,31 +190,48 @@ try{
  assert.equal(await page.locator('[data-view=moderacion]').isVisible(),false);
  await page.locator('[data-view=mi-cuenta]').click();assert.equal(await page.locator('#v244-menu-toggle').getAttribute('aria-expanded'),'false');
  console.log('v2.4.4: marcadores combinados, centrado en ambas pantallas y menú con permisos comprobados');
- // Foro real con API simulada: permisos de interfaz, confirmación y eliminación.
+ // Foro real con API simulada: rol en servidor, confirmación, comentarios y conversaciones en ambos tamaños.
  await page.route('**/src/auth.js',route=>route.fulfill({contentType:'text/javascript',body:'export async function getAuthClient(){return window.forumMock;}'}));
  await page.addStyleTag({url:url+'/src/v245.css'});
  await page.evaluate(async()=>{
-  let role='ciudadano',rows=[{id:'24500000-0000-4000-8000-000000000001',title:'Conversación de prueba',body:'Texto',category:'Comunidad',display_name:'Autor',username:'autor',score:1,reply_count:1}];
-  window.forumDeletes=0;
-  window.forumMock={rpc:async()=>({data:{threads:rows,replies:[]}}),from:()=>({delete:()=>({eq:(key,id)=>({select:async()=>{window.forumDeletes++;rows=rows.filter(r=>r.id!==id);return {data:[{id}]};}})})})};
+  let role='ciudadano',rows=[],replies=[];
+  window.forumDeletes=[];
+  window.forumMock={rpc:async(name,params)=>({data:{threads:rows.filter(r=>!params.p_thread||r.id===params.p_thread).map(r=>({...r,reply_count:replies.filter(x=>x.thread_id===r.id).length})),replies:replies.filter(r=>r.thread_id===params.p_thread)}}),from:table=>table==='app_roles'?{select:()=>({eq:()=>({maybeSingle:async()=>({data:{role}})})})}:{delete:()=>({eq:(key,id)=>({select:async()=>{window.forumDeletes.push({table,id});if(table==='mzt_forum_threads'){rows=rows.filter(r=>r.id!==id);replies=replies.filter(r=>r.thread_id!==id);}else replies=replies.filter(r=>r.id!==id);return {data:[{id}]};}})})}};
   const root=document.createElement('section');root.id='forum245-test';document.body.append(root);
   const {createForum}=await import('/src/forum-v20.js');
-  const forum=createForum(root,{user:()=> 'uid',role:()=>role,posts:()=>[],navigate:()=>{},toast:()=>{},login:()=>{}});
-  window.forumTestRole=r=>{role=r;forum.show();};forum.show();
+  const forum=createForum(root,{user:()=> 'uid',role:()=>'ciudadano',posts:()=>[],navigate:()=>{},toast:()=>{},login:()=>{}});
+  window.forumTestRole=r=>{role=r;forum.show();};
+  window.forumTestReset=()=>{rows=[{id:'24500000-0000-4000-8000-000000000001',title:'Conversación de prueba',body:'Texto',category:'Comunidad',display_name:'Autor',username:'autor',score:1}];replies=[{id:'r1',thread_id:rows[0].id,body:'Respuesta uno',display_name:'Autor',username:'autor'},{id:'r2',thread_id:rows[0].id,body:'Respuesta dos',display_name:'Autor',username:'autor'}];forum.route({topic:'all'});forum.show();};
+  window.forumTestReset();
  });
- await page.waitForSelector('#forum245-test .forum-card');
- assert.equal(await page.locator('#forum245-test [data-delete-thread]').count(),0);
+ const root=page.locator('#forum245-test');
+ await root.locator('.forum-card').waitFor();
+ assert.equal(await root.locator('[data-delete-thread]').count(),0);
  await page.evaluate(()=>window.forumTestRole('lector'));
  await page.waitForFunction(()=>!document.querySelector('#forum245-test').hasAttribute('aria-busy'));
- assert.equal(await page.locator('#forum245-test [data-delete-thread]').count(),0);
+ assert.equal(await root.locator('[data-delete-thread]').count(),0);
  await page.evaluate(()=>window.forumTestRole('editor'));
- await page.locator('#forum245-test [data-delete-thread]').click();
- await page.locator('.v245-forum-confirm [data-cancel]').click();
- assert.equal(await page.evaluate(()=>window.forumDeletes),0);
- await page.locator('#forum245-test [data-delete-thread]').click();
- await page.locator('.v245-forum-confirm [type=submit]').click();
- await page.waitForFunction(()=>window.forumDeletes===1&&!document.querySelector('#forum245-test .forum-card'));
- console.log('v2.4.5: botón editorial, cancelación y eliminación del foro comprobados');
+ for(const width of [390,1440]){
+  await page.setViewportSize({width,height:900});
+  await page.evaluate(()=>{window.forumDeletes=[];window.forumTestReset();});
+  await root.locator('[data-delete-thread]').waitFor();
+  await root.locator('[data-thread-open]').click();
+  await root.locator('[data-delete-reply]').first().waitFor();
+  assert.equal(await root.locator('[data-delete-reply]').count(),2);
+  await root.locator('[data-delete-reply]').first().click();
+  await page.locator('.v245-forum-confirm [data-cancel]').click();
+  assert.equal(await page.evaluate(()=>window.forumDeletes.length),0);
+  await root.locator('[data-delete-reply]').first().click();
+  await page.locator('.v245-forum-confirm [type=submit]').click();
+  await page.waitForFunction(()=>window.forumDeletes.length===1&&document.querySelectorAll('#forum245-test [data-delete-reply]').length===1&&!document.querySelector('#forum245-test').hasAttribute('aria-busy'));
+  assert.equal(await root.locator('[data-delete-reply]').getAttribute('data-delete-reply'),'r2');
+  assert.equal(await page.evaluate(()=>window.forumDeletes[0].table),'mzt_forum_replies');
+  await root.locator('[data-delete-thread]').click();
+  await page.locator('.v245-forum-confirm [type=submit]').click();
+  await page.waitForFunction(()=>window.forumDeletes.length===2&&!document.querySelector('#forum245-test .forum-card'));
+  assert.equal(await page.evaluate(()=>window.forumDeletes[1].table),'mzt_forum_threads');
+ }
+ console.log('v2.4.5: rol vigente, eliminación individual y eliminación de conversación en móvil y escritorio comprobados');
  assert.deepEqual(errors,[]);
  console.log('Chromium: anclajes de todas las categorías, traslado, mapa de publicación, selector, recuperación y ancho del feed correctos');
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}

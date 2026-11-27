@@ -5,3 +5,8 @@
 .v245-forum-confirm .v245-delete-confirm{background:#a52020;border-color:#a52020;color:#fff}
 .v245-forum-confirm [data-delete-error]{color:#a52020;font-size:13px}
 @media(max-width:820px){.forum-card .v245-forum-delete{margin:7px 0 0;min-height:36px}.v245-forum-confirm{max-width:calc(100vw - 24px);box-sizing:border-box}}
+
+.forum-card .v245-forum-delete{display:inline-flex;align-items:center;margin-top:10px;min-height:32px;white-space:normal}
+.forum-reply .v245-forum-delete{margin-left:0}
+.v245-forum-confirm .v245-delete-name{max-height:160px;overflow:auto;white-space:pre-wrap}
+@media(max-width:820px){.forum-card .v245-forum-delete{display:flex;width:max-content;max-width:100%;min-height:44px;margin:10px 0 0}}
