@@ -1,5 +1,5 @@
 /* v2.4.3: estilos aislados; la barra Al día no cambia. */
-.v243-mobile-tab,.v243-map-center{display:none}
+.v243-mobile-tab{display:none}
 .v243-new-posts{position:fixed;z-index:18;left:50%;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom,0px));border:1px solid #ffffff55;border-radius:999px;padding:10px 18px;background:var(--skin-primary);color:var(--skin-on-primary,#fff);font:700 13px 'DM Sans',sans-serif;box-shadow:0 4px 16px #0003;cursor:pointer;white-space:nowrap}
 .v243-new-posts[hidden]{display:none!important}
 body:has(#auth-gate:not([hidden])) .v243-new-posts{display:none!important}
@@ -21,8 +21,8 @@ body:has(#auth-gate:not([hidden])) .v243-new-posts{display:none!important}
  #mobile-trends-panel .trends-card{margin:0}
  #mobile-map-return:not([hidden]){display:flex;position:fixed;right:14px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:17;align-items:center;gap:7px;padding:10px 14px;background:var(--skin-primary);color:var(--skin-on-primary,#fff);border:1px solid #ffffff55;border-radius:30px;box-shadow:0 4px 16px #0002;font:700 12px 'DM Sans',sans-serif;cursor:pointer}
  .v243-new-posts{bottom:calc(70px + env(safe-area-inset-bottom,0px))}
- .v243-map-center:not([hidden]){position:absolute;display:inline-flex;align-items:center;gap:4px;z-index:800;right:63px;top:14px;min-height:36px;padding:7px 9px;border:1px solid #e5ebf2;border-radius:10px;background:white;color:#274b61;font:700 11px 'DM Sans',sans-serif;box-shadow:0 3px 12px #12355020;cursor:pointer}
- #center-expanded-map:not([hidden]){right:12px;top:12px}
- .v243-map-center span[hidden]{display:none}
+
+
+
 }
-@media(min-width:821px){#mobile-map-return,.v243-map-center,.v20-tabs .v243-mobile-tab{display:none!important}}
+@media(min-width:821px){#mobile-map-return,.v20-tabs .v243-mobile-tab{display:none!important}}

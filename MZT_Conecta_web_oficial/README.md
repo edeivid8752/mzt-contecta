@@ -1,8 +1,14 @@
-# MZT Conecta — v2.4.3
+# MZT Conecta — v2.4.4
 
 **[mztconecta.com](https://mztconecta.com)** · Porque lo que pasa en Mazatlán nos une.
 
 ## Historial de actualizaciones
+
+### v2.4.4 — Exploración combinada y navegación móvil
+- Menú móvil desplegable con logo, opciones según los permisos existentes y fotografía de perfil en Mi cuenta cuando esté disponible.
+- Control Centrar en los mapas principales, minimapa lateral de escritorio y mapa ampliado de ambos dispositivos; se oculta al recuperar la vista original y permanece dentro de los límites del mapa.
+- Botones de exploración con iconos y colores característicos también en móviles.
+- Selección múltiple de Social, Noticias e Infraestructura, con categorías secundarias combinadas sin duplicados y resultados sincronizados en el muro, mapas, tendencias y contador.
 
 ### v2.4.3 — Navegación móvil y experiencia del muro
 - Transición animada entre mapa principal y minimapa de escritorio, con vistas previas a 500 ms.

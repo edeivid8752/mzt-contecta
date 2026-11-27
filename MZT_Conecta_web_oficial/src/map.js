@@ -78,7 +78,7 @@ function pinSignature(item){return JSON.stringify([item.coordinates,item.type,it
 export async function initMap({onSelect,onRegionSelect,onFail}){
  onItemClick=onSelect;onRegionClick=onRegionSelect;
  if(mainState){resizeMap();return true;}if(initJob)return initJob;
- initJob=(async()=>{try{const L=await loadLibrary(),el=document.getElementById('map');mainState=makeMap(L,el,DEFAULT_CENTER,12.05,{maxZoom:18});mainState.hover=installMarkerPreviews(el,mainState.instance,id=>lastItems.find(item=>String(item.id)===id));ready=true;mainState.initialView=viewOf(mainState);mainState.instance.on('moveend zoomend',updateCenterControls);updateCenterControls();setRegionData();setMapItems(lastItems,selected);if(requestedFocus)focusMapItem(requestedFocus);return true;}catch(error){console.warn('Mapa:',error);dispose(mainState);mainState=null;ready=false;onFail?.();return false;}finally{initJob=null;}})();
+ initJob=(async()=>{try{const L=await loadLibrary(),el=document.getElementById('map');mainState=makeMap(L,el,DEFAULT_CENTER,12.05,{maxZoom:18});mainState.hover=installMarkerPreviews(el,mainState.instance,id=>lastItems.find(item=>String(item.id)===id));ready=true;mainState.initialView=viewOf(mainState);mainState.instance.on('moveend zoomend dragend',updateCenterControls);updateCenterControls();setRegionData();setMapItems(lastItems,selected);if(requestedFocus)focusMapItem(requestedFocus);return true;}catch(error){console.warn('Mapa:',error);dispose(mainState);mainState=null;ready=false;onFail?.();return false;}finally{initJob=null;}})();
  return initJob;
 }
 export function setMapItems(items,selectedId){
@@ -102,7 +102,7 @@ export function setSelectedRegion(name){highlightedRegion=name||null;mainState?.
 function updateCenterControls(){
  const v=viewOf(mainState),initial=mainState?.initialView;if(!v||!initial)return;
  const centered=Math.abs(v.center[0]-initial.center[0])<.0001&&Math.abs(v.center[1]-initial.center[1])<.0001&&Math.abs(v.zoom-initial.zoom)<.001;
- for(const id of ['center-main-map','center-expanded-map']){const b=document.getElementById(id);if(b){b.hidden=false;b.querySelector('span').hidden=centered;b.setAttribute('aria-pressed',String(centered));}}
+ for(const id of ['center-main-map','center-expanded-map']){const b=document.getElementById(id);if(b){b.hidden=centered;b.removeAttribute('aria-pressed');}}
 }
 export function resetMainMap(){if(mainState&&ready){requestedFocus=null;const v=mainState.initialView;mainState.instance.setView(toLatLng(v.center),v.zoom,{animate:!reduced()});updateCenterControls();}}
 export function getMainMapView(){return viewOf(mainState);}

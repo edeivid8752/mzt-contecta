@@ -1,5 +1,5 @@
 import {CATEGORY_OPTIONS, PLACES, TYPE_INFO, dateISO, offsetDate, WALL_TOPICS, matchesWallTopic} from './data.js?v=2.4.2';
-import {initMap, setMapItems, focusMapItem, resizeMap, setRegionData, setSelectedRegion, refreshEmbeddedMaps, destroyEmbeddedMaps, createLocationPreview, destroyLocationPreview, createPickerMap, destroyPickerMap, resetMainMap} from './map.js?v=2.4.3';
+import {initMap, setMapItems, focusMapItem, resizeMap, setRegionData, setSelectedRegion, refreshEmbeddedMaps, destroyEmbeddedMaps, createLocationPreview, destroyLocationPreview, createPickerMap, destroyPickerMap, resetMainMap} from './map.js?v=2.4.4';
 import {loadBundledRegions,setRegions,regionNames,pointInRegion,matchingRegion} from './regions.js';
 import {THEMES, themeSelection, activePalette, applyTheme, choosePreset, chooseCustom, restoreDefault} from './theme.js';
 import {initializeAuth, refreshIdentity, createAccount, loginAccount, logoutAccount, requestPasswordReset, changePassword, requestEmailVerification} from './auth.js';
@@ -10,7 +10,7 @@ import {SUPABASE_URL} from './supabase-config.js';
 import {loadNotificationsV13,socialAction,loadCommunity,createPost,editEditorialNews,updateProfileServer,createCommentServer,deleteCommentServer,followServer,voteServer,moderatePostServer,resolvePostServer,uploadDataImage,removeImageServer} from './remote.js?v=2.4.1';
 
 import {selectTrends, avatarInitial} from './community-v12.js';
-import {parseRoute, postPath, profilePath, sections, viewPaths, authPaths} from './router-v21.js?v=2.4.3';
+import {parseRoute, postPath, profilePath, sections, viewPaths, authPaths} from './router-v21.js?v=2.4.4';
 import {createAds} from './commerce-v222.js?rev=2';
 import {keepCurrentViewOnIdentity} from './session-view-v222.js';
 import {submitVisitorPost,reportSnapshot,zones,zoneSet,reportAction,trackedType,similarReports,reportProgress,labels as reportLabels} from './community-v23.js';
@@ -20,6 +20,7 @@ import {createForum} from './forum-v20.js?v=2.4.2';
 import {installSelects,refreshSelects} from './selectors-v20.js';
 import {setupDaily,mazatlanDay} from './daily-bar.js?v=2.4.1';
 import {officialToday,newApprovedIds,installPhotoViewer} from './experience-v243.js?v=2.4.3';
+import {combinedTopics,pruneTopics,matchesSelection,sectionOf,wallPath,installMobileMenu} from './experience-v244.js?v=2.4.4';
 let feedMode='explorar',guestMode=false,replyId=null,socialState={saved:[],notifications:[],flags:[],commentVotes:[]};
 let routeReady=false,routeLock=false,pendingRoute=null,sessionChecked=false,returnAfterLogin=null;
 const recoveryAtBoot=new URLSearchParams(location.hash.slice(1)).get('type')==='recovery'||new URLSearchParams(location.search).get('type')==='recovery';let recoveryCompleted=false;
@@ -48,7 +49,7 @@ let mapIsExpanded=false;
 let mapExpandFocus=null;
 let selectedId = null;
 let search = '';
-let wallSection='news',topics={social:new Set(),news:new Set(),infrastructure:new Set()},connectionsId=null,connectionsMode='followers';
+let wallSection='news',activeSections=new Set(['news']),topics=new Set(),connectionsId=null,connectionsMode='followers';
 let forum=null,updateDaily=null,dockQueued=false,ads=null;
 let chosenCoordinates = PLACES[0].coordinates.slice();
 let customMapPoint = false;
@@ -193,10 +194,9 @@ function regionMatches(item){
 function visibleForDay(sourceItems=items){
   const q=search.toLocaleLowerCase('es').trim();
   const source=feedMode==='siguiendo'&&currentPersonId()?selectFollowing(sourceItems,[...new Set(sourceItems.map(authorIdFor))].filter(id=>isFollowing(currentPersonId(),id)),authorIdFor):sourceItems;
-  const list=source.filter(i=>i.review==='approved'&&sectionFor(i)===wallSection&&topicMatch(i)&&dateMatches(i)&&regionMatches(i)
+  const list=source.filter(i=>i.review==='approved'&&matchesSelection(i,activeSections,topics)&&dateMatches(i)&&regionMatches(i)
     &&(!advanced.located||Boolean(i.coordinates)))
     .filter(i=>!q||[i.title,i.description,i.category,i.location].some(v=>String(v||'').toLocaleLowerCase('es').includes(q)));
-  const selected=sourceItems.find(i=>i.id===selectedId&&i.review==='approved'&&sectionFor(i)===wallSection);if(selected&&!list.some(i=>i.id===selected.id))list.push(selected);
   return list.sort((a,b)=>{
     if(advanced.sort==='votes')return voteCount(b)-voteCount(a) || String(b.createdAt).localeCompare(String(a.createdAt));
     const order=String(b.createdAt||b.day+'T'+b.clock).localeCompare(String(a.createdAt||a.day+'T'+a.clock));
@@ -232,7 +232,7 @@ function syncAdvancedForm(){
   setSelectedRegion(advanced.region==='all'?null:advanced.region);
 }
 function resetAllFilters(){
-  topics[wallSection].clear();selectedId=null;advanced={period:'all',from:'',to:'',region:'all',sort:'newest',located:false};
+  topics.clear();selectedId=null;advanced={period:'all',from:'',to:'',region:'all',sort:'newest',located:false};
   search='';$('#search-input').value='';syncAdvancedForm();render();
 }
 function toggleFilters(open){
@@ -264,7 +264,7 @@ function closeExpandedMap(){
   if(mapExpandFocus?.isConnected)mapExpandFocus.focus({preventScroll:true});
 }
 function goHome(){
-  closeExpandedMap();toggleFilters(false);wallSection='news';feedMode='explorar';writeRoute('/');
+  closeExpandedMap();toggleFilters(false);wallSection='news';activeSections=new Set(['news']);topics=pruneTopics(topics,activeSections);feedMode='explorar';writeRoute('/');
   setView('explorar');
   $('.main-area').scrollTo({top:0,behavior:'smooth'});
   window.scrollTo({top:0,behavior:'smooth'});
@@ -285,7 +285,7 @@ function voteCount(item) {
 }
 function renderTrends(){
   // Ventana móvil de 168 horas desde la creación, independiente de los filtros del muro.
-  const candidates=selectTrends(view==='tendencias'?items:items.filter(i=>sectionFor(i)===wallSection),voteCount);
+  const candidates=selectTrends(visibleForDay(),voteCount);
   $('#trends-list').innerHTML=candidates.length ? candidates.map((item,index)=>`
     <button type="button" class="trend-item" data-trend-open="${esc(item.id)}" aria-label="Abrir publicación: ${esc(item.title)}">
       <span class="trend-rank">${index+1}</span>
@@ -498,7 +498,7 @@ function setView(next){
   $('#filter-row').hidden=hideFilters;
   $('.search-wrap').hidden=hideFilters;
   $('.compose-strip').hidden=next==='moderacion';
-  render();
+  render();if(next==='explorar')ensureMap();
 }
 function render() {
   updateComposerAvatar();
@@ -548,9 +548,9 @@ function render() {
   if(view==='explorar'){
     list=visibleForDay();
     $('#result-count').textContent=list.length;
-    const located=list.filter(i=>i.coordinates);
+    const located=list.filter(i=>i.coordinates);$('#expanded-map-count').textContent=located.length+' publicaciones con ubicación según los filtros activos';
     $('#feed-content').innerHTML=list.length?list.map(card).join('')
-      :empty('Aún no hay publicaciones','Cuando la comunidad comparta sus primeros reportes, aparecerán aquí. Si utilizas filtros, prueba a limpiarlos.','Limpiar filtros','reset-filters');
+      :!activeSections.size?empty('Selecciona una o más secciones','Elige Social, Noticias o Infraestructura para explorar publicaciones.'):empty('Aún no hay publicaciones','Cuando la comunidad comparta sus primeros reportes, aparecerán aquí. Si utilizas filtros, prueba a limpiarlos.','Limpiar filtros','reset-filters');
     if(!communityReady)$('#feed-content').insertAdjacentHTML('afterbegin',`<div class="community-notice" role="status"><strong>${communityError?'Conexión pendiente':'Conectando con la comunidad…'}</strong><p>${esc(communityError||'Cargando publicaciones de la comunidad.')}</p><button type="button" data-action="retry-community">Reintentar conexión</button></div>`);
     ads?.wall();
     setMapItems(located,selectedId);
@@ -572,7 +572,7 @@ function render() {
     setMapItems([],null);
   }
   document.querySelectorAll('#filter-row .filter-chip').forEach(btn=>{
-    const on=wallSection===btn.dataset.filter;
+    const on=activeSections.has(btn.dataset.filter);
     btn.classList.toggle('is-on',on);btn.setAttribute('aria-pressed',String(on));
   });
   refreshSelects();scheduleDock();
@@ -996,7 +996,7 @@ $('#composer-create').addEventListener('click',openReportForm);
 $('#map-retry-init').addEventListener('click',()=>{ensureMap();});
 window.addEventListener('online',()=>{if(view==='explorar'&&!mapStarted)ensureMap();});
 $('#refresh-now').addEventListener('click',()=>{void refreshCommunity();});
-$('#feed-mode-tabs').addEventListener('click',e=>{const b=e.target.closest('[data-feed-mode]');if(!b||!currentPersonId())return;feedMode=b.dataset.feedMode;if(feedMode==='siguiendo')wallSection='news';render();});
+$('#feed-mode-tabs').addEventListener('click',e=>{const b=e.target.closest('[data-feed-mode]');if(!b||!currentPersonId())return;feedMode=b.dataset.feedMode;render();});
 $('#trends-list').addEventListener('click',e=>{
   const b=e.target.closest('[data-trend-open]');if(!b)return;
   const item=items.find(i=>i.id===b.dataset.trendOpen);
@@ -1065,7 +1065,7 @@ $('#location-modal').addEventListener('keydown',e=>{
     else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
   }
 });
-$('#filter-row').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(!b)return;wallSection=b.dataset.filter;feedMode='explorar';selectedId=null;render();});
+$('#filter-row').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(!b)return;const section=b.dataset.filter;if(!Object.hasOwn(WALL_TOPICS,section))return;if(activeSections.has(section))activeSections.delete(section);else activeSections.add(section);wallSection=activeSections.has(section)?section:([...activeSections].at(-1)||'news');topics=pruneTopics(topics,activeSections);selectedId=null;render();});
 $('#search-input').addEventListener('input',e=>{search=e.target.value;selectedId=null;render();});
 $('#drawer-backdrop').addEventListener('click',closeDrawer);
 $('#feed-content').addEventListener('click',e=>{
@@ -1171,7 +1171,7 @@ function onIdentityChange(state){
  }
  if(wasChecked&&!old&&guestMode&&state.status==='signed_out'){if(r.auth)showAuth(r.auth,true);else if(!$('#auth-gate').hidden)applyLocation();return;}
  forum?.reset();reportRecords={};zoneAlerts=[];zoneReady=false;currentIdentity=null;role='visitante';guestMode=true;feedMode='explorar';void ads?.sync();
- socialState={saved:[],notifications:[],flags:[],commentVotes:[]};clearSocialSnapshot();items=[];communityReady=false;communityError='';localProfile={username:'',bio:'',avatar:null,cover:null};
+ socialState={saved:[],notifications:[],flags:[],commentVotes:[]};clearSocialSnapshot();items=[];newPostItems=[];communityReady=false;communityError='';localProfile={username:'',bio:'',avatar:null,cover:null};
  closePublicProfile();closeDrawer();closePicker();closeLocationModal();closeExpandedMap();destroyEmbeddedMaps();
  applyLocation();$('#auth-configuration').hidden=state.status!=='unconfigured';
  if(state.status==='error'&&!$('#auth-gate').hidden)setAuthFeedback(state.message||'No fue posible verificar la sesión.',true);
@@ -1225,6 +1225,7 @@ void loadBundledRegions().then(count=>{geoRegionsAvailable=count>0;setRegionData
 installV20();
 ads=createAds({user:currentPersonId,view:()=>view,nav:updateNavigation,toast:showToast,compress:compressedPhoto,login:notSignedIn,navigate:next=>{if(next==='business'&&!currentPersonId()){returnAfterLogin='/mi-negocio';return showAuth('login');}setView(next);scrollTopPage();}});
 installMobileMap();
+installMobileMenu({sidebar:$('#sidebar'),nav:$('#side-nav'),toggle:$('#v244-menu-toggle'),signOut:$('#sign-out'),mobile:mobileViewport});
 installPhotoViewer($('#v243-photo'),mobileViewport);
 installNewPostNotice();
 installRouter();
@@ -1283,16 +1284,15 @@ async function refreshNotificationsV13(){
 setInterval(()=>{void refreshNotificationsV13();},30000);
 document.addEventListener('visibilitychange',()=>{void refreshNotificationsV13();});
 
-function sectionFor(item){return item.type==='citizen'?'news':item.type;}
-function topicMatch(item){return !topics[wallSection].size||[...topics[wallSection]].some(t=>matchesWallTopic(item,t));}
+function sectionFor(item){return sectionOf(item);}
 function eventDateMarkup(item){return item.eventDay?'<p class="event-date">Fecha del evento: '+esc(dateLabel(item.eventDay))+'</p>':'';}
 function renderTopics(){
- const group=$('#topic-filters'),selected=topics[wallSection];group.innerHTML=['Todos',...WALL_TOPICS[wallSection]].map(t=>{const on=t==='Todos'?!selected.size:selected.has(t);return '<button type="button" class="filter-chip '+(on?'is-on':'')+'" data-topic="'+esc(t)+'" aria-pressed="'+on+'">'+esc(t)+'</button>';}).join('');
+ const group=$('#topic-filters'),selected=topics;group.innerHTML=(activeSections.size?['Todos',...combinedTopics(activeSections)]:[]).map(t=>{const on=t==='Todos'?!selected.size:selected.has(t);return '<button type="button" class="filter-chip '+(on?'is-on':'')+'" data-topic="'+esc(t)+'" aria-pressed="'+on+'">'+esc(t)+'</button>';}).join('');
 }
 function scrollTopPage(){const behavior=matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth';$('.main-area').scrollTo({top:0,behavior});window.scrollTo({top:0,behavior});}
 function jumpToWall(item){
  if(!item||item.review!=='approved')return showToast('Publicación no disponible.');
- closeExpandedMap();wallSection=sectionFor(item);setView('explorar');selectedId=item.id;render();
+ closeExpandedMap();wallSection=sectionFor(item);activeSections.add(wallSection);if(!visibleForDay().some(p=>p.id===item.id)){feedMode='explorar';topics.clear();advanced={period:'all',from:'',to:'',region:'all',sort:'newest',located:false};search='';$('#search-input').value='';}setView('explorar');selectedId=item.id;render();
  if(item.coordinates)focusMapItem(item);
  requestAnimationFrame(()=>{const card=[...document.querySelectorAll('#feed-content [data-post-id]')].find(n=>n.dataset.postId===item.id);if(card)card.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});else openPost(item);scheduleDock();});
 }
@@ -1311,9 +1311,9 @@ function installV20(){
  forum=createForum($('#forum-panel'),{user:currentPersonId,posts:()=>items,openPost:id=>{const p=items.find(i=>i.id===id);if(p)jumpToWall(p);else showToast('Publicación no disponible. Actualiza el muro.');},login:notSignedIn,toast:showToast,navigate:path=>writeRoute(path)});
  updateDaily=setupDaily($('#daily-bar'),jumpToWall);updateDaily([],mazatlanDay());
  installSelects();
- $('.v20-top').addEventListener('click',e=>{const b=e.target.closest('[data-top-view]');if(!b)return;if(b.dataset.topView==='explorar')return goHome();setView(b.dataset.topView);scrollTopPage();});
+ $('.v20-top').addEventListener('click',e=>{const b=e.target.closest('[data-top-view]');if(!b)return;if(b.dataset.topView==='explorar'){if(view==='explorar')return goHome();setView('explorar');scrollTopPage();return;}setView(b.dataset.topView);scrollTopPage();});
  $('#about-panel').addEventListener('click',e=>{if(e.target.closest('[data-about-ads]')&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey){e.preventDefault();setView('advertise');scrollTopPage();return;}if(e.target.closest('[data-about-home]')){setView('explorar');scrollTopPage();}});
- $('#topic-filters').addEventListener('click',e=>{const b=e.target.closest('[data-topic]');if(!b)return;const set=topics[wallSection],t=b.dataset.topic;if(t==='Todos')set.clear();else if(set.has(t))set.delete(t);else set.add(t);selectedId=null;render();});
+ $('#topic-filters').addEventListener('click',e=>{const b=e.target.closest('[data-topic]');if(!b)return;const set=topics,t=b.dataset.topic;if(t!=='Todos'&&!combinedTopics(activeSections).includes(t))return;if(t==='Todos')set.clear();else if(set.has(t))set.delete(t);else set.add(t);selectedId=null;render();});
  $('#restore-map').addEventListener('click',()=>scrollTopPage());
  $('#toggle-wall-panels').addEventListener('click',e=>{const b=e.currentTarget;const opened=b.getAttribute('aria-expanded')==='true';b.setAttribute('aria-expanded',String(!opened));$('#wall-panels').classList.toggle('collapsed',opened);});
  $('.main-area').addEventListener('scroll',scheduleDock,{passive:true});window.addEventListener('scroll',scheduleDock,{passive:true});window.addEventListener('resize',scheduleDock);
@@ -1334,13 +1334,13 @@ function animateMapMove(move,animated){
 
 function writeRoute(path,replace=false){
  if(routeLock||!routeReady||location.pathname+location.search===path)return;
- if(!replace)history.replaceState({...history.state,scroll:window.scrollY,filters:{advanced:{...advanced},search,topics:Object.fromEntries(Object.entries(topics).map(([k,v])=>[k,[...v]]))}},'',location.href);
+ if(!replace)history.replaceState({...history.state,scroll:window.scrollY,filters:{advanced:{...advanced},search,topics:[...topics]}},'',location.href);
  history[replace?'replaceState':'pushState'](replace?{...history.state}:{fromApp:true},'',path);
 }
 function pathForCurrent(){
  if(view==='publicacion'){const p=items.find(i=>i.id===selectedId);return p?postPath(p):null;}
  if(view==='foro')return parseRoute(location.pathname).view==='foro'?location.pathname:'/foro';
- if(view==='explorar')return feedMode==='siguiendo'?'/muro/siguiendo':wallSection==='news'&&location.pathname==='/'?'/':'/muro/'+sections[wallSection];
+ if(view==='explorar')return wallPath(activeSections,feedMode,location.pathname);
  if(view==='mi-cuenta'){const p=personFor(profileId);return profileId&&profileId!==currentPersonId()?(p?profilePath(p):null):'/cuenta';}
  if(view==='connections'){const p=personFor(connectionsId);return p?profilePath(p,connectionsMode):null;}
  return viewPaths[view]||'/';
@@ -1367,7 +1367,7 @@ function applyLocation(){
  $('#auth-gate').hidden=true;$('.app-shell').hidden=false;$('#boot-status').hidden=true;
  routeLock=true;pendingRoute=null;
  try{
-  if(r.view==='explorar'){wallSection=r.section;feedMode=r.mode==='siguiendo'&&currentPersonId()?'siguiendo':'explorar';}
+  if(r.view==='explorar'){activeSections=new Set(r.activeSections||[r.section]);wallSection=[...activeSections].at(-1)||'news';topics=pruneTopics(topics,activeSections);feedMode=r.mode==='siguiendo'&&currentPersonId()?'siguiendo':'explorar';}
   if(r.view==='foro')forum?.route(r);
   if(r.view==='publicacion'||r.username){
    if(r.view==='publicacion'){selectedId=r.id;view='publicacion';}
@@ -1383,7 +1383,7 @@ function applyLocation(){
 }
 function installRouter(){
  history.scrollRestoration='manual';
- window.addEventListener('popstate',()=>{const f=history.state?.filters;if(f){advanced={...f.advanced};search=f.search||'';$('#search-input').value=search;for(const k of Object.keys(topics))topics[k]=new Set(f.topics[k]||[]);}applyLocation();const y=history.state?.scroll||0;requestAnimationFrame(()=>window.scrollTo({top:y,behavior:'instant'}));});
+ window.addEventListener('popstate',()=>{const f=history.state?.filters;if(f){advanced={...f.advanced};search=f.search||'';$('#search-input').value=search;topics=new Set(Array.isArray(f.topics)?f.topics:Object.values(f.topics||{}).flat());}applyLocation();const y=history.state?.scroll||0;requestAnimationFrame(()=>window.scrollTo({top:y,behavior:'instant'}));});
  // Los botones de navegación existentes conservan su comportamiento; clic modificado abre otra pestaña.
  document.addEventListener('click',e=>{
   const el=e.target.closest('[data-open],[data-profile-id],[data-view],[data-top-view]');
@@ -1424,10 +1424,10 @@ function arrangeMobileTrends(){
  const panel=$('#mobile-trends-panel'),rail=$('#wall-panels'),trends=$('.trends-card'),stats=$('#stats-strip'),ad=$('#ad-sidebar');
  if(mobileViewport.matches){
   if(trends.parentNode!==panel)panel.append(trends,stats);
-  $('.trends-intro').textContent='Las publicaciones más votadas de la comunidad durante los últimos 7 días.';
+  $('.trends-intro').textContent='Las publicaciones más votadas de las secciones y filtros seleccionados durante los últimos 7 días.';
  }else{
   if(trends.parentNode!==rail){rail.insertBefore(trends,ad);rail.insertBefore(stats,ad.nextSibling);}
-  $('.trends-intro').textContent='Las publicaciones más votadas de esta sección durante los últimos 7 días.';
+  $('.trends-intro').textContent='Las publicaciones más votadas de las secciones y filtros seleccionados durante los últimos 7 días.';
  }
  panel.hidden=view!=='tendencias'||!mobileViewport.matches;
 }

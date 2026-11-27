@@ -159,6 +159,34 @@ try{
  const reset=await page.evaluate(()=>window.mzt.getMainMapView());
  assert(Math.abs(reset.center[0]+106.429)<.001&&Math.abs(reset.center[1]-23.241)<.001&&Math.abs(reset.zoom-12)<.26,'Centrado incorrecto '+JSON.stringify(reset));
  console.log('v2.4.3: alineación, hover, mapa móvil sin acoplar, flecha y centrado comprobados');
+ // v2.4.4: comprobar selección combinada y controles reales en el mapa vivo.
+ await page.addStyleTag({url:url+'/src/v244.css'});
+ await page.evaluate(async markers=>{
+  const {matchesSelection}=await import('/src/experience-v244.js');window.mzt.setMapItems(markers.filter(p=>matchesSelection(p,new Set(['news','infrastructure']),new Set())),null);
+  const p=document.querySelector('#map-panel');const controls=document.createElement('div');controls.className='v244-map-controls';controls.innerHTML='<button id="center-main-map" class="v243-map-center" hidden>Centrar</button><button class="map-expand-button">Ampliar</button>';p.append(controls);
+  document.querySelector('#center-main-map').onclick=window.mzt.resetMainMap;window.mzt.resizeMap();
+ },markers);
+ assert.equal(await page.locator('#map .leaflet-mzt-pin').count(),5);
+ await page.evaluate(()=>window.mzt.focusMapItem({coordinates:[-106.42,23.22]}));
+ await page.waitForFunction(()=>!document.querySelector('#center-main-map').hidden);
+ await page.evaluate(()=>document.querySelector('#center-main-map').click());
+ await page.waitForFunction(()=>document.querySelector('#center-main-map').hidden);
+ await page.setViewportSize({width:1440,height:1000});
+ await page.evaluate(()=>window.mzt.focusMapItem({coordinates:[-106.42,23.22]}));
+ await page.waitForFunction(()=>!document.querySelector('#center-main-map').hidden);
+ await page.evaluate(()=>document.querySelector('#center-main-map').click());
+ await page.waitForFunction(()=>document.querySelector('#center-main-map').hidden);
+ await page.setViewportSize({width:390,height:844});
+ await page.evaluate(async()=>{
+  const {installMobileMenu}=await import('/src/experience-v244.js');const side=document.querySelector('.sidebar');side.id='sidebar';
+  side.innerHTML='<button id="v244-menu-toggle" aria-expanded="false">Menú</button><nav id="side-nav"><button data-view="mi-cuenta" class="side-link">Mi cuenta</button><button data-view="moderacion" class="side-link" hidden>Moderación</button></nav><button id="sign-out" class="side-link">Salir</button>';
+  installMobileMenu({sidebar:side,nav:side.querySelector('nav'),toggle:side.querySelector('#v244-menu-toggle'),signOut:side.querySelector('#sign-out'),mobile:matchMedia('(max-width:820px)')});
+  side.querySelector('#v244-menu-toggle').click();
+ });
+ assert.equal(await page.locator('#v244-menu-toggle').getAttribute('aria-expanded'),'true');
+ assert.equal(await page.locator('[data-view=moderacion]').isVisible(),false);
+ await page.locator('[data-view=mi-cuenta]').click();assert.equal(await page.locator('#v244-menu-toggle').getAttribute('aria-expanded'),'false');
+ console.log('v2.4.4: marcadores combinados, centrado en ambas pantallas y menú con permisos comprobados');
  assert.deepEqual(errors,[]);
  console.log('Chromium: anclajes de todas las categorías, traslado, mapa de publicación, selector, recuperación y ancho del feed correctos');
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}

@@ -10,11 +10,12 @@ export function postPath(item){return '/publicacion/'+(slug(item.title)?slug(ite
 export function threadPath(t){return '/foro/conversacion/'+(slug(t.title)?slug(t.title)+'-':'')+t.id;}
 export function profilePath(p,mode){return '/perfil/'+encodeURIComponent(p.username)+(mode?'/'+(mode==='followers'?'seguidores':'seguidos'):'');}
 export function parseRoute(path,search=''){
- const legacy=new URLSearchParams(search).get('post');if(path==='/'&&uuid.test(legacy||''))return {view:'publicacion',id:legacy.toLowerCase()};
+ const params=new URLSearchParams(search);const legacy=params.get('post');if(path==='/'&&uuid.test(legacy||''))return {view:'publicacion',id:legacy.toLowerCase()};
  const p=path.replace(/\/+$/,'')||'/';
  const a=Object.entries(authPaths).find(([,v])=>v===p);if(a)return {auth:a[0]};
  const v=Object.entries(viewPaths).find(([,v])=>v===p);if(v)return {view:v[0]};
  if(['/negocio/registro','/mi-negocio/campanas','/mi-negocio/estadisticas'].includes(p))return {view:'business'};
+ if(params.has('secciones')&&(p==='/'||p==='/muro/siguiendo'||Object.values(sections).some(s=>p==='/muro/'+s))){const activeSections=[...new Set((params.get('secciones')||'').split(',').filter(s=>Object.hasOwn(sections,s)))];return {view:'explorar',section:activeSections.at(-1)||'news',mode:p==='/muro/siguiendo'?'siguiendo':'explorar',activeSections};}
  if(p==='/')return {view:'explorar',section:'news',mode:'explorar'};
  if(p==='/muro/siguiendo')return {view:'explorar',section:'news',mode:'siguiendo'};
  const w=Object.entries(sections).find(([,s])=>p==='/muro/'+s);if(w)return {view:'explorar',section:w[0],mode:'explorar'};
