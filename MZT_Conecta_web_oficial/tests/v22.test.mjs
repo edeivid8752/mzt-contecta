@@ -17,7 +17,7 @@ assert.equal(parseRoute('/administracion/publicidad').view,'ad-admin');
 assert.equal(parseRoute('/publicidad').view,'advertise');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8'),main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8'),css=readFileSync(new URL('../src/v22.css',import.meta.url),'utf8');
 for(const id of ['commerce-panel','ad-sidebar','mobile-map-return'])assert(html.includes('id="'+id+'"'));
-assert(main.includes("if(mobile){undockMap();updateMobileMapButton();return;}"));
+assert(main.includes("if(mobile){if($('#map-panel').parentNode!==$('#map-home'))undockMap();updateMobileMapButton();return;}"));
 assert(css.includes('@media(max-width:820px)'));
 assert(js.includes('mzt_ad_event')&&js.includes('IntersectionObserver'));
 console.log('Pruebas de publicidad y navegación v2.2 correctas');
