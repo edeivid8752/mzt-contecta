@@ -103,7 +103,11 @@ try{
  await page.evaluate(code=>{
   const fixture=document.querySelector('.fixture'),map=document.querySelector('#map');
   const header=document.createElement('header');header.className='v20-top';header.textContent='Muro | Foro';
-  fixture.before(header);
+  const shell=document.createElement('div');shell.className='app-shell';
+  const area=document.createElement('main');area.className='main-area';
+  const sidebar=document.createElement('aside');sidebar.className='sidebar';
+  fixture.before(shell);shell.append(sidebar,area);area.append(header,fixture);
+  document.body.style.height='auto';document.body.style.minHeight='100dvh';
   const gate=document.createElement('div');gate.id='auth-gate';gate.hidden=true;fixture.prepend(gate);
   const daily=document.createElement('div');daily.id='daily-bar';daily.className='daily-bar';daily.textContent='Al día';
   const home=document.createElement('div');home.id='map-home';
@@ -135,7 +139,8 @@ try{
  await page.evaluate(()=>{window.scrollTo({top:1100,behavior:'instant'});window.dock.update();});
  await page.waitForTimeout(300);
  const second=await page.locator('#map-panel').boundingBox();
- assert(Math.abs(first.y-second.y)<2,'El mapa no acompaña el desplazamiento');
+ const secondHeader=await page.locator('.v20-top').boundingBox();
+ assert(second.y>=0&&second.height<=130&&Math.abs(second.y-Math.max(0,secondHeader.y+secondHeader.height))<2&&Math.abs(first.y-second.y)<2,'El mapa no acompaña el desplazamiento '+JSON.stringify({first,second,header,secondHeader}));
  await anchors();
  await page.evaluate(()=>{window.scrollTo({top:0,behavior:'instant'});window.dock.update();});
  await page.waitForTimeout(300);
