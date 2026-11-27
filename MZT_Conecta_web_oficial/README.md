@@ -1,8 +1,15 @@
-# MZT Conecta — v2.2
+# MZT Conecta — v2.2.1
 
 **[mztconecta.com](https://mztconecta.com)** · Porque lo que pasa en Mazatlán nos une.
 
 ## Historial de actualizaciones
+
+### v2.2.1 — Corrección de los paneles comerciales
+
+**Publicidad y negocios**
+- Corrección de la visualización de Mi negocio y Administración de publicidad.
+- Separación de los paneles de gestión y los espacios publicitarios del muro.
+- Mejora de los estados de carga, acceso y recuperación ante errores de conexión.
 
 ### v2.2 — Publicidad y comercio local
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {parseRoute} from '../src/router-v21.js';
-const js=readFileSync(new URL('../src/ads-v22.js',import.meta.url),'utf8');
+const js=readFileSync(new URL('../src/commerce-v221.js',import.meta.url),'utf8');
 const helpers=js.slice(js.indexOf('export function safeLink'),js.indexOf('const statusNames')).replaceAll('export function ','function ');
 const {safeLink,localDay,activeAds,pickAds}=Function(helpers+';return {safeLink,localDay,activeAds,pickAds}')();
 assert.equal(safeLink('javascript:alert(1)'),'');
@@ -16,7 +16,7 @@ assert.equal(parseRoute('/mi-negocio').view,'business');
 assert.equal(parseRoute('/administracion/publicidad').view,'ad-admin');
 assert.equal(parseRoute('/publicidad').view,'advertise');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8'),main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8'),css=readFileSync(new URL('../src/v22.css',import.meta.url),'utf8');
-for(const id of ['ads-panel','ad-sidebar','mobile-map-return'])assert(html.includes('id="'+id+'"'));
+for(const id of ['commerce-panel','ad-sidebar','mobile-map-return'])assert(html.includes('id="'+id+'"'));
 assert(main.includes("if(mobile){undockMap();updateMobileMapButton();return;}"));
 assert(css.includes('@media(max-width:820px)'));
 assert(js.includes('mzt_ad_event')&&js.includes('IntersectionObserver'));

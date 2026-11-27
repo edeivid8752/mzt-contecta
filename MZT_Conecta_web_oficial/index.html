@@ -16,8 +16,8 @@
   <link rel="stylesheet" href="./src/styles.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="./src/v20.css">
-  <link rel="stylesheet" href="./src/v22.css">
-  <script type="module" src="./src/main.js"></script>
+  <link rel="stylesheet" href="./src/v22.css?v=2.2.1">
+  <script type="module" src="./src/main.js?v=2.2.1"></script>
 </head>
 <body>
   <section id="auth-gate" class="auth-gate" hidden aria-labelledby="auth-title">
@@ -98,12 +98,12 @@
         <p>Infórmate, comparte y ayuda a tu comunidad.</p>
       </div>
       <button type="button" id="sign-out" class="side-link subtle sign-out-side"><span class="nav-ico">⇥</span><span>Cerrar sesión</span></button>
-      <div class="sidebar-bottom"><span class="mini-live"></span> COMUNIDAD DE MAZATLÁN <span>V 2.2</span></div>
+      <div class="sidebar-bottom"><span class="mini-live"></span> COMUNIDAD DE MAZATLÁN <span>V 2.2.1</span></div>
     </aside>
 
     <main class="main-area">
       <header class="v20-top"><button class="v20-brand" data-top-view="explorar" type="button">MZT Conecta</button><nav class="v20-tabs" aria-label="Navegación principal"><button type="button" data-top-view="explorar" aria-current="page">Muro</button><button type="button" data-top-view="foro">Foro</button><button type="button" data-top-view="about">¿Quiénes somos?</button></nav></header>
-      <div class="main-body"><section id="v13-panel" hidden></section><section id="ads-panel" hidden></section>
+      <div class="main-body"><section id="v13-panel" hidden></section><section id="commerce-panel" class="v20-panel" aria-label="Gestión comercial" hidden><p role="status">Cargando información comercial…</p></section>
       <div id="daily-bar" class="daily-bar"><strong class="daily-label">Al día</strong><div class="daily-headlines"><button id="daily-story" type="button"></button><span id="daily-controls"><button id="daily-prev" type="button" aria-label="Anterior">‹</button><button id="daily-pause" type="button" aria-label="Pausar">Ⅱ</button><button id="daily-next" type="button" aria-label="Siguiente">›</button></span></div><div class="weather" title="Clima en Mazatlán"><span id="weather-icon"></span><strong id="weather-reading">—</strong><span id="weather-condition">Mazatlán</span></div></div>
       <section id="forum-panel" class="v20-panel" hidden></section><section id="about-panel" class="v20-panel" hidden></section><section id="connections-panel" class="v20-panel" hidden></section>
         <div class="page-heading">

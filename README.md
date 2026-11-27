@@ -39,6 +39,13 @@ Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de m
 
 ## Historial de actualizaciones
 
+### v2.2.1 — Corrección de los paneles comerciales
+
+**Publicidad y negocios**
+- Corrección de la visualización de Mi negocio y Administración de publicidad.
+- Separación de los paneles de gestión y los espacios publicitarios del muro.
+- Mejora de los estados de carga, acceso y recuperación ante errores de conexión.
+
 ### v2.2 — Publicidad y comercio local
 
 **Publicidad y negocios**

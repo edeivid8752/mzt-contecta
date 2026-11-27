@@ -11,7 +11,7 @@ import {loadNotificationsV13,socialAction,loadCommunity,createPost,updateProfile
 
 import {selectTrends, avatarInitial} from './community-v12.js';
 import {parseRoute, postPath, profilePath, sections, viewPaths, authPaths} from './router-v21.js';
-import {createAds} from './ads-v22.js';
+import {createAds} from './commerce-v221.js';
 import {installColorPicker,selectFollowing} from './community-v13.js';
 import {createForum} from './forum-v20.js';
 import {installSelects,refreshSelects} from './selectors-v20.js';
@@ -473,7 +473,7 @@ function render() {
   document.querySelectorAll('.side-link[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
   const alternate=['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias','foro','about','connections','business','ad-admin','advertise'].includes(view);
   $('#v13-panel').hidden=!['guardados','notificaciones','denuncias'].includes(view);
-  const commercial=['business','ad-admin','advertise'].includes(view);$('#ads-panel').hidden=!commercial;if(view!=='explorar'){$('#mobile-map-return').hidden=true;ads?.leave();}
+  const commercial=['business','ad-admin','advertise'].includes(view);$('#commerce-panel').hidden=!commercial;if(view!=='explorar')$('#mobile-map-return').hidden=true;if(!commercial)ads?.leave();
   $('#sign-out span:last-child').textContent=guestMode?'Iniciar sesión':'Cerrar sesión';
   $('.page-heading').hidden = alternate;
   if(view!=='explorar')undockMap();
@@ -488,7 +488,11 @@ function render() {
   $('#profile-page').hidden=view!=='mi-cuenta';
   $('#post-page').hidden=view!=='publicacion';
   $('#people-page').hidden=view!=='personas';
-  if(commercial){void ads?.show(view);return;}
+  if(commercial){
+    const panel=$('#commerce-panel');panel.hidden=false;
+    if(!ads){panel.textContent='No se pudo abrir el panel comercial. Actualiza la página.';return;}
+    void ads.show(view).catch(error=>{if(['business','ad-admin','advertise'].includes(view))panel.textContent=error?.message||'No se pudo abrir el panel comercial.';});return;
+  }
   if(view==='foro'){forum?.show();return;}
   if(view==='about'){renderAbout();return;}
   if(view==='connections'){if(pendingRoute?.username){$('#connections-panel').innerHTML='<p role="status">Cargando perfil…</p>';return;}renderConnections();return;}
