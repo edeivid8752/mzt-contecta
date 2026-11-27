@@ -90,10 +90,12 @@ try{
  // Simular teselas no disponibles y vuelta de conexión sin recargar la página.
  tilesFailed=true;await page.reload();await page.waitForFunction(()=>!!window.mapReady);assert(await page.evaluate(()=>window.mapReady));
  await page.evaluate(markers=>window.mzt.setMapItems(markers,null),markers);
- await page.waitForSelector('#map .leaflet-tile');
+ await page.waitForSelector('#map .leaflet-tile',{state:'attached'});
  await page.evaluate(()=>{const real=Date.now;Date.now=()=>real()+20000;});
  tilesFailed=false;await page.evaluate(()=>window.dispatchEvent(new Event('online')));
  await page.waitForFunction(()=>Array.from(document.querySelectorAll('#map .leaflet-tile-loaded')).some(i=>i.complete&&i.naturalWidth>0));
- await anchors();assert.deepEqual(errors,[]);
+ await anchors();
+ await page.setViewportSize({width:390,height:844});await page.waitForTimeout(350);await anchors();
+ assert.deepEqual(errors,[]);
  console.log('Chromium: anclajes de todas las categorías, traslado, mapa de publicación, selector, recuperación y ancho del feed correctos');
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
