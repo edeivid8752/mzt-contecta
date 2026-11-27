@@ -111,12 +111,9 @@ try{
   panel.append(map,button);home.append(panel);fixture.prepend(daily,home);
   document.querySelector('#main-box').remove();document.querySelector('#dock-box').remove();
   document.querySelector('.feed-panel').style.minHeight='1800px';
-  const run=new Function('
- console.log('Chromium: anclajes de todas las categorías, traslado, mapa de publicación, selector, recuperación y ancho del feed correctos');
-}finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
-,'resizeMap', 'let view="explorar",mapIsExpanded=false;'+code+';return {update:updateMobileMapButton,clear:clearMobileDock,setView(v){view=v;updateMobileMapButton();}};');
+  const run=new Function(String.fromCharCode(36),'resizeMap','let view="explorar",mapIsExpanded=false;'+code+';return {update:updateMobileMapButton,clear:clearMobileDock,setView(v){view=v;updateMobileMapButton();}};');
   window.dock=run(s=>document.querySelector(s),window.mzt.resizeMap);
-  window.scrollTo(0,0);window.mzt.resizeMap();
+  window.scrollTo({top:0,behavior:'instant'});window.mzt.resizeMap();
  },dockCode);
  await page.setViewportSize({width:1720,height:1050});
  await page.waitForTimeout(350);
@@ -124,24 +121,24 @@ try{
  assert(Math.abs(rail.x-hero.x)<2&&Math.abs(hero.x-bar.x)<2,'Bordes izquierdos desalineados '+JSON.stringify({rail,hero,bar}));
  assert(Math.abs(hero.x+hero.width-feed.x-feed.width)<2&&Math.abs(bar.x+bar.width-feed.x-feed.width)<2,'Borde derecho desalineado');
  await page.setViewportSize({width:390,height:844});
- await page.evaluate(()=>{window.scrollTo(0,0);window.dock.update();});
+ await page.evaluate(()=>{window.scrollTo({top:0,behavior:'instant'});window.dock.update();});
  await page.waitForTimeout(300);
  const mobileBefore=await page.locator('.feed-panel').evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,width:r.width,y:r.top+window.scrollY};});
- await page.evaluate(()=>{window.scrollTo(0,800);window.dock.update();});
+ await page.evaluate(()=>{window.scrollTo({top:800,behavior:'instant'});window.dock.update();});
  await page.waitForTimeout(350);
  const first=await page.locator('#map-panel').boundingBox(),header=await page.locator('.v20-top').boundingBox();
  assert(first.height<=130&&first.height>=90&&Math.abs(first.y-(header.y+header.height))<2,'Minimapa fuera de cabecera '+JSON.stringify({first,header}));
  const mobileAfter=await page.locator('.feed-panel').evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,width:r.width,y:r.top+window.scrollY};});
  assert(Math.abs(mobileBefore.x-mobileAfter.x)<1&&Math.abs(mobileBefore.width-mobileAfter.width)<1&&Math.abs(mobileBefore.y-mobileAfter.y)<2,'El acoplamiento desplazó el muro '+JSON.stringify({mobileBefore,mobileAfter}));
- await page.evaluate(()=>{window.scrollTo(0,1100);window.dock.update();});
+ await page.evaluate(()=>{window.scrollTo({top:1100,behavior:'instant'});window.dock.update();});
  await page.waitForTimeout(300);
  const second=await page.locator('#map-panel').boundingBox();
  assert(Math.abs(first.y-second.y)<2,'El mapa no acompaña el desplazamiento');
  await anchors();
- await page.evaluate(()=>{window.scrollTo(0,0);window.dock.update();});
+ await page.evaluate(()=>{window.scrollTo({top:0,behavior:'instant'});window.dock.update();});
  await page.waitForTimeout(300);
  assert(await page.locator('#map-panel').evaluate(el=>!el.classList.contains('is-mobile-docked')&&el.clientHeight>200),'No regresó el mapa grande');
- await page.evaluate(()=>{window.scrollTo(0,850);window.dock.update();window.dock.setView('foro');});
+ await page.evaluate(()=>{window.scrollTo({top:850,behavior:'instant'});window.dock.update();window.dock.setView('foro');});
  assert(await page.locator('#map-panel').evaluate(el=>!el.classList.contains('is-mobile-docked')),'Mapa flotante fuera del muro');
  console.log('v2.4.1: alineación de escritorio, mapa fijo móvil, vuelta al mapa grande y posición del muro comprobados');
  assert.deepEqual(errors,[]);
