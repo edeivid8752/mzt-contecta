@@ -6,6 +6,7 @@ let libPromise,mainState=null,initJob=null,lastItems=[],selected=null,onItemClic
 let lifecycleInstalled=false,previewState=null,pickerState=null,pickerMarker=null,previewRequest=0,pickerRequest=0;
 const live=new Set(),embeddedMaps=new Map(),embeddedViews=new WeakMap();
 let embeddedObserver=null,embeddedGeneration=0;
+let embeddedVisible=new WeakSet();
 export const validCoordinates=c=>Array.isArray(c)&&c.length===2&&c.every(Number.isFinite)&&Math.abs(c[0])<=180&&Math.abs(c[1])<=85.051129;
 export const toLatLng=c=>[c[1],c[0]];
 const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -104,16 +105,16 @@ function embeddedItem(el){return {id:'embedded',coordinates:(el.dataset.coords||
 async function activateEmbeddedMap(el,generation){
  if(embeddedMaps.has(el)||!visible(el))return;
  const item=embeddedItem(el);if(!validCoordinates(item.coordinates))return;
- try{const L=await loadLibrary();if(generation!==embeddedGeneration||embeddedMaps.has(el)||!visible(el))return;const saved=embeddedViews.get(el);el.classList.remove('embedded-map-failed');el.replaceChildren();const s=makeMap(L,el,saved?.center||item.coordinates,saved?.zoom||15.75,{controls:true});embeddedMaps.set(el,s);addPin(s,item,false);}
+ try{const L=await loadLibrary();if(generation!==embeddedGeneration||embeddedMaps.has(el)||!visible(el)||(embeddedObserver&&!embeddedVisible.has(el)))return;const saved=embeddedViews.get(el);el.classList.remove('embedded-map-failed');el.replaceChildren();const s=makeMap(L,el,saved?.center||item.coordinates,saved?.zoom||15.75,{controls:true});embeddedMaps.set(el,s);addPin(s,item,false);}
  catch(error){console.warn('Mapa de publicación:',error);if(el.isConnected){el.classList.add('embedded-map-failed');el.textContent='No se pudo cargar el mapa. Vuelve a abrir la publicación.';}}
 }
 function removeEmbedded(el,s){if(!s)return;if(el.isConnected)embeddedViews.set(el,viewOf(s));dispose(s);embeddedMaps.delete(el);}
 export function refreshEmbeddedMaps(){
- embeddedObserver?.disconnect();const generation=++embeddedGeneration;
+ embeddedObserver?.disconnect();embeddedVisible=new WeakSet();const generation=++embeddedGeneration;
  for(const [el,s] of embeddedMaps)if(!el.isConnected||!el.clientHeight)removeEmbedded(el,s);
  const nodes=document.querySelectorAll('.post-embedded-map');
  if(!('IntersectionObserver' in window)){nodes.forEach(el=>void activateEmbeddedMap(el,generation));return;}
- embeddedObserver=new IntersectionObserver(entries=>{if(generation!==embeddedGeneration)return;for(const e of entries){if(e.isIntersecting)void activateEmbeddedMap(e.target,generation);else removeEmbedded(e.target,embeddedMaps.get(e.target));}},{rootMargin:'100px 0px 100px 0px'});
+ embeddedObserver=new IntersectionObserver(entries=>{if(generation!==embeddedGeneration)return;for(const e of entries){if(e.isIntersecting){embeddedVisible.add(e.target);void activateEmbeddedMap(e.target,generation);}else{embeddedVisible.delete(e.target);removeEmbedded(e.target,embeddedMaps.get(e.target));}}},{rootMargin:'100px 0px 100px 0px'});
  nodes.forEach(el=>embeddedObserver.observe(el));
 }
 export function destroyEmbeddedMaps(){embeddedGeneration++;embeddedObserver?.disconnect();embeddedObserver=null;for(const [el,s] of embeddedMaps)removeEmbedded(el,s);}

@@ -66,3 +66,11 @@ jobs:
 
           psql -h localhost -U postgres -d mzt_test -v ON_ERROR_STOP=1 -f MZT_Conecta_web_oficial/tests/v24-isolated.sql
           psql -h localhost -U postgres -d mzt_test -v ON_ERROR_STOP=1 -f MZT_Conecta_web_oficial/tests/v24-email-isolated.sql
+      - name: Mapas en Chromium (sin servicios de producción)
+        working-directory: MZT_Conecta_web_oficial
+        run: |
+          export MZT_BROWSER_DEPS="$RUNNER_TEMP/mzt-browser"
+          export MZT_CHROME_PATH="$(command -v google-chrome || command -v chromium)"
+          test -n "$MZT_CHROME_PATH"
+          npm install --prefix "$MZT_BROWSER_DEPS" --no-package-lock --no-save leaflet@1.9.4 playwright-core@1.56.1
+          node tests/v24-browser.mjs
