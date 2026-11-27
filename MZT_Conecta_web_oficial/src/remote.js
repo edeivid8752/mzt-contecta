@@ -1,5 +1,6 @@
 // Capa de datos de MZT Conecta v1.2. Solo clave publicable, nunca service_role.
 import {getAuthClient} from './auth.js';
+import {parseRoute} from './router-v21.js';
 const BUCKET='mzt-media';
 const fail=(r)=>{if(r.error)throw Error(r.error.message||'Error de Supabase');return r.data;};
 async function client(){const c=await getAuthClient();if(!c)throw Error('Configura tu conexión de Supabase.');return c;}
@@ -7,7 +8,7 @@ export async function loadCommunity(visitor=false){
  const c=await client();
  if(visitor){
   const raw=fail(await c.rpc('mzt_public_feed',{p_post:sharedPostId()}));
-  return {people:raw.profiles.map(p=>({id:p.id,name:p.display_name,username:p.username,avatar:p.avatar_url})),items:raw.posts.map(p=>mapV13Post(p,new Map(raw.roles.map(r=>[r.user_id,r.role])))),comments:raw.comments.map(mapV13Comment),follows:[],votes:[],voteCounts:raw.counts,saved:[],notifications:[],flags:[],commentVotes:[]};
+  return {people:raw.profiles.map(p=>({id:p.id,name:p.display_name,username:p.username,avatar:p.avatar_url})),items:raw.posts.map(p=>mapV13Post(p)),comments:raw.comments.map(mapV13Comment),follows:[],votes:[],voteCounts:raw.counts,saved:[],notifications:[],flags:[],commentVotes:[]};
  }
  // Consultas limitadas: para comunidades mayores se implementará paginación.
  const [profiles,posts,comments,follows,votes,saved,notifications,flags,commentVotes]=await Promise.all([
@@ -21,16 +22,10 @@ export async function loadCommunity(visitor=false){
   c.from('mzt_flags').select('id,post_id,comment_id,reason,status,created_at').order('created_at',{ascending:false}).limit(200),
   c.from('mzt_comment_votes').select('comment_id,user_id').limit(2000)
  ]);
- // Roles reales de autores de publicaciones visibles; se agrupan las consultas.
+ // Se consulta la publicación enlazada aunque no esté en la primera página.
  const postRows=fail(posts);const shared=sharedPostId();if(shared&&!postRows.some(p=>p.id===shared)){const extra=fail(await c.from('mzt_posts').select('*').eq('id',shared).maybeSingle());if(extra)postRows.unshift(extra);}
- const authorIds=[...new Set(postRows.map(p=>p.user_id).filter(Boolean))];
- const roleResults=[];
- for(let i=0;i<authorIds.length;i+=100){
-  roleResults.push(c.from('app_roles').select('user_id,role').in('user_id',authorIds.slice(i,i+100)));
- }
- const roles=new Map((await Promise.all(roleResults)).flatMap(result=>fail(result)).map(row=>[row.user_id,row.role]));
  return {people:fail(profiles).map(p=>({id:p.id,name:p.display_name,username:p.username,bio:p.bio||'',avatar:p.avatar_url,cover:p.cover_url})),
-  items:postRows.map(p=>mapV13Post(p,roles)),comments:fail(comments).map(mapV13Comment),saved:fail(saved).map(p=>p.post_id),notifications:fail(notifications),flags:fail(flags),commentVotes:fail(commentVotes),
+  items:postRows.map(p=>mapV13Post(p)),comments:fail(comments).map(mapV13Comment),saved:fail(saved).map(p=>p.post_id),notifications:fail(notifications),flags:fail(flags),commentVotes:fail(commentVotes),
   follows:fail(follows).map(f=>({from:f.follower_id,to:f.followed_id})),votes:fail(votes).map(v=>({postId:v.post_id,userId:v.user_id}))};
 }
 export async function createPost(input){const c=await client();return fail(await c.from('mzt_posts').insert(input).select('id').single());}
@@ -59,15 +54,15 @@ export async function removeImageServer(url){
  if(path)fail(await c.storage.from(BUCKET).remove([path]));
 }
 
-function sharedPostId(){const id=new URLSearchParams(location.search).get('post');return /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id||'')?id:null;}
-function mapV13Post(p,roles){
+function sharedPostId(){const r=parseRoute(location.pathname,location.search);return r.view==='publicacion'?r.id:null;}
+function mapV13Post(p){
  const localDate=t=>{const d=new Date(t);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
  return (p=>({id:p.id,type:p.type,title:p.title,description:p.description||'',category:p.category,location:p.location||'Toda la ciudad',
   coordinates:p.longitude==null||p.latitude==null?null:[p.longitude,p.latitude],day:localDate(p.created_at),
   clock:new Date(p.created_at).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false}),
   createdAt:p.created_at,review:p.review,reviewedAt:p.reviewed_at,approvedAt:p.approved_at,resolvedAt:p.resolved_at,
   eventDay:p.event_day||null,rejectionReason:p.rejection_reason,image:p.photo_url,sourceName:p.source_name,sourceUrl:p.source_url,
-  owner:'remote',ownerUserId:p.user_id,authorRole:roles.get(p.user_id)||null}))(p);
+  owner:'remote',ownerUserId:p.user_id}))(p);
 }
 function mapV13Comment(c){return {id:c.id,postId:c.post_id,authorId:c.user_id,text:c.body,createdAt:c.created_at,parentId:c.parent_id||null,editedAt:c.edited_at||null};}
 export async function socialAction(kind,id,user,extra){

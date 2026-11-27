@@ -94,7 +94,7 @@ export async function createAccount(email, password, displayName, username) {
     return data === true;
   };
   if(!await available()) throw Error('Ese nombre de usuario ya está ocupado. Elige otro.');
-  const {data, error} = await client.auth.signUp({email, password, options: {data:profile,emailRedirectTo: location.origin + location.pathname}});
+  const {data, error} = await client.auth.signUp({email, password, options: {data:profile,emailRedirectTo: location.origin + '/'}});
   if (error) {
     // La restricción única del servidor también protege frente a registros simultáneos.
     if(error.code === 'unexpected_failure' || /database error/i.test(error.message||'')) {
@@ -119,7 +119,7 @@ export async function logoutAccount() {
 }
 export async function requestPasswordReset(email) {
   const client = await requiredClient();
-  const {error} = await client.auth.resetPasswordForEmail(email, {redirectTo: location.origin + location.pathname});
+  const {error} = await client.auth.resetPasswordForEmail(email, {redirectTo: location.origin + '/'});
   if (error) throw error;
 }
 export async function changePassword(password) {

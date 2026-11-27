@@ -38,6 +38,7 @@ jobs:
           node --version
           find src -name '*.js' -print0 | xargs -0 -n 1 node --experimental-default-type=module --check
           node --experimental-default-type=module tests/v20.test.mjs
+          node --experimental-default-type=module tests/v21.test.mjs
           node --experimental-default-type=module tests/v12.test.mjs
           node --experimental-default-type=module tests/v13.test.mjs
           node --experimental-default-type=module tests/v131.test.mjs
@@ -49,3 +50,5 @@ jobs:
           psql -h localhost -U postgres -d mzt_test -v ON_ERROR_STOP=1 -f MZT_Conecta_web_oficial/tests/v131-isolated.sql
 
           psql -h localhost -U postgres -d mzt_test -v ON_ERROR_STOP=1 -f MZT_Conecta_web_oficial/tests/v20-isolated.sql
+
+          psql -h localhost -U postgres -d mzt_test -v ON_ERROR_STOP=1 -f MZT_Conecta_web_oficial/tests/v21-isolated.sql

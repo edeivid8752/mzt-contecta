@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="es-MX">
 <head>
+  <base href="/">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#062647">
@@ -18,7 +19,7 @@
   <script type="module" src="./src/main.js"></script>
 </head>
 <body>
-  <section id="auth-gate" class="auth-gate" aria-labelledby="auth-title">
+  <section id="auth-gate" class="auth-gate" hidden aria-labelledby="auth-title">
     <div class="auth-frame">
       <div class="auth-intro">
         <div class="auth-logo"><img src="./assets/isotipo.png" alt="MZT Conecta"><strong>MZT<span>Conecta</span></strong></div>
@@ -63,13 +64,14 @@
           <label>Confirmar contraseña<input name="confirm" type="password" autocomplete="new-password" minlength="10" required></label>
           <button type="submit" class="auth-submit">Guardar nueva contraseña</button>
         </form>
-        <div id="v13-access" class="v13-access"><button type="button" id="guest-enter" class="guest-enter">Entrar como visitante</button><button type="button" id="auth-about" class="guest-enter">¿Quiénes somos?</button></div>
+        <div id="v13-access" class="v13-access"><button type="button" id="guest-enter" class="guest-enter">Volver al muro</button><button type="button" id="auth-about" class="guest-enter">¿Quiénes somos?</button></div>
         <div id="auth-feedback" class="auth-feedback" role="status" aria-live="polite" hidden></div>
         <p id="auth-configuration" class="auth-configuration" hidden>Falta conectar Supabase. Los formularios están preparados, pero no crearán cuentas hasta introducir la URL y la clave publicable del proyecto.</p>
       </div>
     </div>
   </section>
 
+  <div id="boot-status" role="status" style="padding:24px;text-align:center">Cargando MZT Conecta…</div>
   <div class="app-shell" hidden>
     <aside class="sidebar" id="sidebar" aria-label="Navegación principal">
       <button type="button" class="brand" id="brand-home" title="Ir al muro principal" aria-label="Ir al muro principal de MZT Conecta">
@@ -94,7 +96,7 @@
         <p>Infórmate, comparte y ayuda a tu comunidad.</p>
       </div>
       <button type="button" id="sign-out" class="side-link subtle sign-out-side"><span class="nav-ico">⇥</span><span>Cerrar sesión</span></button>
-      <div class="sidebar-bottom"><span class="mini-live"></span> COMUNIDAD DE MAZATLÁN <span>V 2.0</span></div>
+      <div class="sidebar-bottom"><span class="mini-live"></span> COMUNIDAD DE MAZATLÁN <span>V 2.1</span></div>
     </aside>
 
     <main class="main-area">

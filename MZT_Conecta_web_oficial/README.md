@@ -1,8 +1,25 @@
-# MZT Conecta — v2.0
+# MZT Conecta — v2.1
 
 **[mztconecta.com](https://mztconecta.com)** · Porque lo que pasa en Mazatlán nos une.
 
 ## Historial de actualizaciones
+
+### v2.1 — Navegación, fluidez y privacidad
+
+**Navegación**
+- Direcciones independientes para las secciones del muro, foro, conversaciones, publicaciones, perfiles y demás apartados.
+- Enlaces compartidos permanentes y compatibilidad con las direcciones anteriores.
+- Navegación mediante el historial del navegador y acceso directo al contenido.
+
+**Acceso**
+- Entrada directa al muro con sesión activa o como visitante.
+- Rutas independientes para iniciar sesión, registrarse y recuperar contraseña.
+
+**Mapa interactivo**
+- Transición animada entre el mapa principal y el minimapa.
+
+**Privacidad**
+- Identificación de autores mediante nombre visible y nombre de usuario, sin mostrar sus roles.
 
 ### v2.0 — Expansión de la plataforma
 
@@ -51,8 +68,10 @@
 
 ## Guía técnica de actualización
 
-- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`, `supabase/upgrade_v20.sql`. No ejecutar scripts antiguos de instalación sobre producción.
+- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`, `supabase/upgrade_v20.sql`, `supabase/upgrade_v21.sql`. No ejecutar scripts antiguos de instalación sobre producción.
 - La actualización v1.3.1 utiliza los metadatos de registro solo para el nombre visible y el identificador, nunca para asignar roles.
 - El índice único de perfiles evita duplicados incluso con registros simultáneos. La consulta de disponibilidad devuelve únicamente un booleano.
 - GitHub Actions verifica JavaScript y las migraciones de PostgreSQL en una base aislada.
 - Render conserva la configuración existente, incluyendo manifest y service worker. No publicar claves privadas.
+
+- Render: configurar una regla Rewrite de `/*` a `/index.html` para servir las rutas directas; los archivos estáticos existentes conservan sus rutas. Mantener el despliegue manual.

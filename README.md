@@ -10,7 +10,7 @@ La experiencia combina un **muro de publicaciones** con un **mapa interactivo** 
 
 ## ¿Qué puedes hacer en MZT Conecta?
 
-- **Explorar el muro ciudadano:** consultar actividades sociales, noticias, avisos y reportes de infraestructura.
+- **Explorar el muro ciudadano:** acceder directamente a actividades sociales, noticias, avisos y reportes de infraestructura, con o sin sesión iniciada.
 - **Consultar el mapa de Mazatlán:** localizar publicaciones, ampliar el mapa y mantenerlo visible mientras recorres el muro.
 - **Publicar reportes y actividades:** elegir una categoría, añadir fotografías, ubicación y, en actividades sociales, fecha de evento.
 - **Filtrar publicaciones:** combinar temas, fechas, zonas, votos y presencia de ubicación.
@@ -18,7 +18,7 @@ La experiencia combina un **muro de publicaciones** con un **mapa interactivo** 
 - **Interactuar con otras personas:** comentar, votar «Me sirve», visitar perfiles y consultar seguidores y seguidos.
 - **Personalizar tu perfil:** modificar nombre, biografía, fotografía, portada y colores de la interfaz.
 - **Mantenerte informado:** consultar tendencias de cada sección, titulares, eventos y clima.
-- **Guardar y compartir publicaciones:** conservar contenido de interés y compartir enlaces.
+- **Guardar y compartir publicaciones:** conservar contenido de interés y compartir enlaces directos a publicaciones y conversaciones.
 - **Conocer MZT Conecta:** consultar la información del proyecto y su espacio de colaboraciones.
 - **Moderar la comunidad:** los reportes ciudadanos pasan por revisión antes de mostrarse en el muro general.
 
@@ -34,6 +34,23 @@ La experiencia combina un **muro de publicaciones** con un **mapa interactivo** 
 Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de moderación se controlan desde la base de datos.
 
 ## Historial de actualizaciones
+
+### v2.1 — Navegación, fluidez y privacidad
+
+**Navegación**
+- Direcciones independientes para las secciones del muro, foro, conversaciones, publicaciones, perfiles y demás apartados.
+- Enlaces compartidos permanentes y compatibilidad con las direcciones anteriores.
+- Navegación mediante el historial del navegador y acceso directo al contenido.
+
+**Acceso**
+- Entrada directa al muro con sesión activa o como visitante.
+- Rutas independientes para iniciar sesión, registrarse y recuperar contraseña.
+
+**Mapa interactivo**
+- Transición animada entre el mapa principal y el minimapa.
+
+**Privacidad**
+- Identificación de autores mediante nombre visible y nombre de usuario, sin mostrar sus roles.
 
 ### v2.0 — Expansión de la plataforma
 

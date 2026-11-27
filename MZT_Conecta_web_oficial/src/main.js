@@ -9,13 +9,15 @@ import {authorIdFor,personFor,syncPerson,followersOf,followingOf,isFollowing,com
 import {SUPABASE_URL} from './supabase-config.js';
 import {loadNotificationsV13,socialAction,loadCommunity,createPost,updateProfileServer,createCommentServer,deleteCommentServer,followServer,voteServer,moderatePostServer,resolvePostServer,uploadDataImage,removeImageServer} from './remote.js';
 
-import {selectTrends, avatarInitial, authorByline} from './community-v12.js';
+import {selectTrends, avatarInitial} from './community-v12.js';
+import {parseRoute, postPath, profilePath, sections, viewPaths, authPaths} from './router-v21.js';
 import {installColorPicker,selectFollowing} from './community-v13.js';
 import {createForum} from './forum-v20.js';
 import {installSelects,refreshSelects} from './selectors-v20.js';
 import {setupDaily} from './daily-bar.js';
 let feedMode='explorar',guestMode=false,replyId=null,socialState={saved:[],notifications:[],flags:[],commentVotes:[]};
-let sharedId=new URLSearchParams(location.search).get('post');
+let routeReady=false,routeLock=false,pendingRoute=null,sessionChecked=false,returnAfterLogin=null;
+const recoveryAtBoot=new URLSearchParams(location.hash.slice(1)).get('type')==='recovery'||new URLSearchParams(location.search).get('type')==='recovery';let recoveryCompleted=false;
 
 const $ = sel => document.querySelector(sel);
 let items = []; // Solo publicaciones de Supabase
@@ -63,7 +65,7 @@ async function refreshCommunity({quiet=false}={}){
    currentIdentity.profile={...currentIdentity.profile,display_name:me.name};}
   helpfulVotes=new Set(snapshot.votes.filter(v=>v.userId===currentPersonId()).map(v=>v.postId));
   communityReady=true;communityError='';
-  if(sharedId){const target=items.find(i=>i.id===sharedId);sharedId=null;if(target){selectedId=target.id;view='publicacion';}else showToast('Publicación no disponible.');}
+  if(pendingRoute){const r=pendingRoute;pendingRoute=null;resolveRouteContent(r);if(r.view==='publicacion'){const target=items.find(p=>p.id===r.id);if(target)writeRoute(postPath(target),true);}}
   rememberCurrentPerson();
   $('#sidebar-avatar').innerHTML=localProfile.avatar?`<img src="${esc(localProfile.avatar)}" alt="">`:'◎';
   render();
@@ -124,26 +126,24 @@ function updateComposerAvatar(){
 function postAuthorByline(item){
   const own=ownPost(item);
   const username=own?localProfile.username:personFor(authorIdFor(item))?.username;
-  return authorByline(username,item.authorRole||(own?currentIdentity?.role:null));
+  return username?'@'+username:'';
 }
 function currentPersonId(){return currentIdentity?.user?.id||'';}
 function currentPerson(){return personFor(currentPersonId())||{id:currentPersonId(),name:currentIdentity?.profile?.display_name||'Mi perfil',username:localProfile.username,bio:localProfile.bio,avatar:localProfile.avatar,cover:localProfile.cover};}
 function rememberCurrentPerson(){if(currentIdentity?.user?.id)syncPerson(currentIdentity.user.id,currentIdentity.profile?.display_name||'Mi perfil',localProfile);}
 function openProfile(id){
- if(!currentPersonId())return notSignedIn();
+ if(!currentPersonId()){const p=personFor(id);if(p){returnAfterLogin=profilePath(p);return showAuth('login');}return notSignedIn();}
   closeExpandedMap();
   if(!id||!personFor(id))return showToast('No encontramos ese perfil en la comunidad.');
   profileReturnView=['explorar','moderacion','personas','mi-cuenta','publicacion','connections','foro'].includes(view)?view:'explorar';
-  profileId=id;profileTab='publicaciones';view='mi-cuenta';render();
-  $('.main-area').scrollTo({top:0,behavior:'smooth'});
+  pendingRoute=null;profileId=id;profileTab='publicaciones';view='mi-cuenta';render();scrollTopPage();
 }
 function openPost(item){
   closeExpandedMap();
   if(!item)return;
   if(view!=='publicacion')postReturnView=view;
   replyId=null;
-  selectedId=item.id;view='publicacion';render();
-  $('.main-area').scrollTo({top:0,behavior:'smooth'});
+  pendingRoute=null;selectedId=item.id;view='publicacion';render();scrollTopPage();
 }
 function ownPost(item) {
   return Boolean(currentIdentity?.user?.id && item.owner==='remote' && item.ownerUserId===currentIdentity.user.id);
@@ -254,7 +254,7 @@ function closeExpandedMap(){
   if(mapExpandFocus?.isConnected)mapExpandFocus.focus({preventScroll:true});
 }
 function goHome(){
-  closeExpandedMap();toggleFilters(false);
+  closeExpandedMap();toggleFilters(false);wallSection='news';feedMode='explorar';writeRoute('/');
   setView('explorar');
   $('.main-area').scrollTo({top:0,behavior:'smooth'});
   window.scrollTo({top:0,behavior:'smooth'});
@@ -287,7 +287,6 @@ function renderAccount() {
   const picked = themeSelection();
   const colors = activePalette();
   const name = currentIdentity?.profile?.display_name || 'Mi perfil';
-  const roleName = ({ciudadano:'Ciudadano', lector:'Lector', editor:'Editor'})[role] || 'Visitante';
   const options = Object.entries(THEMES).map(([key, theme]) => `
     <button type="button" class="theme-tile ${picked.preset === key ? 'chosen' : ''}" data-theme-preset="${key}" aria-pressed="${picked.preset === key}">
       <span class="theme-sample" style="--sample-sidebar:${theme.sidebar};--sample-primary:${theme.primary};--sample-accent:${theme.accent};--sample-bg:${theme.background}">
@@ -312,7 +311,7 @@ function renderAccount() {
     <div class="account-grid">
       <section class="account-card profile-card" aria-labelledby="profile-heading">
         <div class="account-card-heading"><span class="account-card-icon">◎</span><div><small>PERFIL</small><h2 id="profile-heading">Tus datos</h2></div></div>
-        <div class="profile-person"><span data-avatar-preview>${avatarMarkup(name)}</span><div><strong>${esc(name)}</strong><small>@${esc(localProfile.username)} · ${roleName}</small><small>${esc(currentIdentity?.user?.email || '')}</small></div></div>
+        <div class="profile-person"><span data-avatar-preview>${avatarMarkup(name)}</span><div><strong>${esc(name)}</strong><small>@${esc(localProfile.username)}</small><small>${esc(currentIdentity?.user?.email || '')}</small></div></div>
         <div class="settings-cover-preview" style="${imageURL(localProfile.cover)?`background-image:url('${esc(imageURL(localProfile.cover))}')`:''}"></div>
         <div class="profile-photo-tools"><label for="profile-photo" class="profile-photo-button">Ajustar foto de perfil</label><input id="profile-photo" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Cambiar fotografía de perfil"><button type="button" class="profile-remove-photo" data-action="remove-avatar" ${localProfile.avatar?'':'hidden'}>Quitar foto</button></div>
         <div class="profile-photo-tools"><label for="profile-cover" class="profile-photo-button">Ajustar portada</label><input id="profile-cover" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Cambiar portada"><button type="button" class="profile-remove-photo" data-action="remove-cover" ${localProfile.cover?'':'hidden'}>Quitar portada</button></div>
@@ -375,7 +374,7 @@ function renderPeoplePage(){
 }
 function renderPostPage(){
   const item=items.find(i=>i.id===selectedId);
-  if(!item){setView('explorar');return;}
+  if(!item){$('#post-page').innerHTML='<p role="status">'+(communityReady?'Publicación no disponible.':'Cargando publicación…')+'</p><button class="back-link" data-action="back-post" type="button">‹ Volver al muro</button>';return;}
   const person=personFor(authorIdFor(item))||{id:authorIdFor(item),name:item.sourceName||'Comunidad de Mazatlán',username:'comunidad_mzt'};
   const ownAuthor=authorIdFor(item)===currentPersonId();
   const rows=commentsFor(item.id);
@@ -411,14 +410,14 @@ function card(item){
   const socialAuthor=personFor(authorIdFor(item))||{id:authorIdFor(item),name:author,username:'comunidad_mzt'};
   return `<article class="event-card ${selectedId===item.id?'selected':''}" data-post-id="${esc(item.id)}">
     <div class="post-byline"><button type="button" class="person-inline" data-profile-id="${esc(socialAuthor.id)}">${personAvatar(socialAuthor,'post-avatar')}<span class="post-author-block"><strong>${esc(isOwn?author:socialAuthor.name)}</strong><small>${esc(postAuthorByline(item))}</small></span></button><span class="post-age">${esc(item.clock||'')}</span></div>
-    <button type="button" class="post-open" data-open="${esc(item.id)}" aria-label="Ver publicación: ${esc(item.title)}">
+    <a class="post-open" href="${esc(postPath(item))}" data-open="${esc(item.id)}" aria-label="Ver publicación: ${esc(item.title)}">
       <div class="post-tags"><span class="type-tag ${typeClass}${item.resolvedAt?' resolved':''}"><span class="type-symbol symbol-${typeClass}"></span>${esc(typeLabel(item))}</span>${item.category?`<span class="post-topic">${esc(item.category)}</span>`:''}</div>
       <h3>${esc(item.title)}</h3>
       ${eventDateMarkup(item)}
       ${item.description?`<p class="post-excerpt">${esc(item.description)}</p>`:''}
       ${image}
       ${view==='mi-cuenta'&&isOwn?`<div class="pending-tag">${esc(statusLabel(item))}${item.rejectionReason?` · ${esc(short(item.rejectionReason,70))}`:''}</div>`:''}
-    </button>
+    </a>
     ${embeddedMap(item)}
     <div class="post-actions">
       <button type="button" class="post-action ${voted?'voted':''}" data-action="helpful" data-id="${esc(item.id)}" aria-pressed="${String(voted)}"><span aria-hidden="true">▲</span> ${voteCount(item)} · ${voted?'Marcado útil':'Me sirve'}</button>
@@ -446,7 +445,9 @@ function updateNavigation(){
 }
 function setView(next){
   if(next!=='explorar')closeExpandedMap();
-  if(!canOpenView(next)) {showToast('Tu cuenta no tiene permiso para entrar a este apartado.');return;}
+  if(next==='foro'&&!routeLock){forum?.route({topic:'all',thread:null});writeRoute('/foro');}
+  if(!canOpenView(next)) {if(!currentPersonId())return notSignedIn();showToast('Tu cuenta no tiene permiso para entrar a este apartado.');return;}
+  if(!routeLock)pendingRoute=null;
   view=next; selectedId=null;
   if(next==='mi-cuenta')profileId=currentPersonId();
   document.querySelectorAll('.side-link[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===next));
@@ -466,6 +467,7 @@ function setView(next){
 function render() {
   updateComposerAvatar();
   if(!canOpenView(view)) view='explorar';
+  syncRoute();
   updateNavigation();
   document.querySelectorAll('.side-link[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
   const alternate=['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias','foro','about','connections'].includes(view);
@@ -486,10 +488,10 @@ function render() {
   $('#people-page').hidden=view!=='personas';
   if(view==='foro'){forum?.show();return;}
   if(view==='about'){renderAbout();return;}
-  if(view==='connections'){renderConnections();return;}
+  if(view==='connections'){if(pendingRoute?.username){$('#connections-panel').innerHTML='<p role="status">Cargando perfil…</p>';return;}renderConnections();return;}
   if(['guardados','notificaciones','denuncias'].includes(view)){renderV13Panel();return;}
   if(view==='configuracion'){renderAccount();return;}
-  if(view==='mi-cuenta'){renderProfilePage();scheduleMapCards();return;}
+  if(view==='mi-cuenta'){if(pendingRoute?.username){$('#profile-page').innerHTML='<p role="status">Cargando perfil…</p>';return;}if(profileId==='missing'){$('#profile-page').innerHTML='<p>Perfil no disponible.</p>';return;}renderProfilePage();scheduleMapCards();return;}
   if(view==='personas'){renderPeoplePage();return;}
   if(view==='publicacion'){renderPostPage();scheduleMapCards();return;}
   $('#feed-mode-tabs').hidden=view!=='explorar'||role==='visitante';
@@ -583,12 +585,7 @@ function openDrawer(markup,mode='side'){
 function drawerHead(eyebrow,title,desc=''){
   return `<div class="drawer-head"><button class="drawer-close" type="button" data-action="close-drawer" aria-label="Cerrar panel">×</button><p class="eyebrow">${esc(eyebrow)}</p><h2>${esc(title)}</h2>${desc?`<p>${esc(desc)}</p>`:''}</div>`;
 }
-function notSignedIn(){
- guestMode=false;sharedId=null;
-  $('#auth-gate').hidden = false;
-  $('.app-shell').hidden = true;
-  setAuthView('login');
-}
+function notSignedIn(){returnAfterLogin=location.pathname+location.search;showAuth('login');}
 function openReportForm(){
   if(role==='visitante') return notSignedIn();
   chosenCoordinates=null;
@@ -867,9 +864,9 @@ $('#public-profile-dialog').addEventListener('keydown',e=>{
   else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
 });
 $('#sign-out').addEventListener('click', async () => {
-  if(guestMode){guestMode=false;onIdentityChange({status:'signed_out'});return;}
+  if(guestMode)return notSignedIn();
   const button=$('#sign-out');button.disabled=true;
-  try {await logoutAccount();onIdentityChange({status:'signed_out'});}
+  try {await logoutAccount();returnAfterLogin=null;writeRoute('/',true);onIdentityChange({status:'signed_out'});}
   catch {showToast('No se pudo cerrar sesión. Intenta de nuevo.');}
   finally {button.disabled=false;}
 });
@@ -903,7 +900,7 @@ $('#side-nav').addEventListener('click',e=>{const b=e.target.closest('[data-view
 $('#composer-report').addEventListener('click',openReportForm);
 $('#composer-create').addEventListener('click',openReportForm);
 $('#refresh-now').addEventListener('click',()=>{void refreshCommunity();});
-$('#feed-mode-tabs').addEventListener('click',e=>{const b=e.target.closest('[data-feed-mode]');if(!b||!currentPersonId())return;feedMode=b.dataset.feedMode;render();});
+$('#feed-mode-tabs').addEventListener('click',e=>{const b=e.target.closest('[data-feed-mode]');if(!b||!currentPersonId())return;feedMode=b.dataset.feedMode;if(feedMode==='siguiendo')wallSection='news';render();});
 $('#trends-list').addEventListener('click',e=>{
   const b=e.target.closest('[data-trend-open]');if(!b)return;
   const item=items.find(i=>i.id===b.dataset.trendOpen);
@@ -917,7 +914,7 @@ $('#profile-page').addEventListener('click',e=>{
  const tab=e.target.closest('[data-profile-tab]');if(tab){profileTab=tab.dataset.profileTab;renderProfilePage();return;}
  const action=e.target.closest('[data-action]');if(!action)return;
  if(action.dataset.action==='edit-settings')return setView('configuracion');
- if(action.dataset.action==='back-profile')return setView(profileReturnView==='mi-cuenta'||profileReturnView==='publicacion'?'explorar':profileReturnView);
+ if(action.dataset.action==='back-profile'){if(history.state?.fromApp)return history.back();return setView(profileReturnView==='mi-cuenta'||profileReturnView==='publicacion'?'explorar':profileReturnView);}
  if(action.dataset.action==='follow'){
   void(async()=>{try{await requireCommunity();await followServer(currentPersonId(),profileId,isFollowing(currentPersonId(),profileId));await refreshCommunity({quiet:true});showToast('Seguimiento actualizado.');}
    catch(error){showToast(error.message||'No se pudo actualizar el seguimiento.');}})();return;
@@ -934,7 +931,7 @@ $('#post-page').addEventListener('click',e=>{
  const resolve=e.target.closest('[data-resolve]');if(resolve){void resolveReport(resolve.dataset.resolve);return;}
  const decision=e.target.closest('[data-review]');if(decision){void review(decision.dataset.review,decision.dataset.decision);return;}
  const action=e.target.closest('[data-action]');if(!action)return;
- if(action.dataset.action==='back-post')return setView(postReturnView==='publicacion'?'explorar':postReturnView);
+ if(action.dataset.action==='back-post'){if(history.state?.fromApp)return history.back();return setView(postReturnView==='publicacion'?'explorar':postReturnView);}
  if(action.dataset.action==='locate'){const item=items.find(i=>i.id===selectedId);if(item)openLocationModal(item);return;}
  if(action.dataset.action==='helpful'){const item=items.find(i=>i.id===selectedId);if(item)void voteOn(item);}
 });
@@ -972,7 +969,7 @@ $('#location-modal').addEventListener('keydown',e=>{
     else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
   }
 });
-$('#filter-row').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(!b)return;wallSection=b.dataset.filter;selectedId=null;render();});
+$('#filter-row').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(!b)return;wallSection=b.dataset.filter;feedMode='explorar';selectedId=null;render();});
 $('#search-input').addEventListener('input',e=>{search=e.target.value;selectedId=null;render();});
 $('#drawer-backdrop').addEventListener('click',closeDrawer);
 $('#feed-content').addEventListener('click',e=>{
@@ -1053,55 +1050,35 @@ function ensureMap() {
   },onFail(){ $('#map-fallback').hidden=false; }})
     .then(ok=>{if(ok){$('#map-fallback').hidden=true;setMapItems(view==='explorar'?visibleForDay().filter(i=>i.coordinates):[],selectedId);setTimeout(resizeMap,400);}});
 }
-function onIdentityChange(state) {
-  if (state.status==='loading') return;
-  if (state.status==='signed_in') {
-    if(currentPersonId()!==state.user.id)forum?.reset();guestMode=false;currentIdentity=state;
-    role=state.role;
-    localProfile=loadLocalProfile(state.user.id);
-    clearSocialSnapshot();communityReady=false;communityError='';items=[];
-    rememberCurrentPerson();
-    $('#sidebar-avatar').innerHTML=localProfile.avatar?`<img src="${esc(localProfile.avatar)}" alt="">`:'◎';
-    $('#auth-configuration').hidden=true;
-    if(state.recovery){
-      $('.app-shell').hidden=true;
-      $('#auth-gate').hidden=false;
-      setAuthView('recover');
-      return;
-    }
-    $('#auth-gate').hidden=true;
-    $('.app-shell').hidden=false;
-    if(!canOpenView(view))view='explorar';
-    render();
-    ensureMap();
-    void refreshCommunity();
-    return;
-  }
-  if(guestMode&&state.status==='signed_out')return;
-  if(sharedId&&state.status==='signed_out'){enterVisitor();return;}
-  forum?.reset();feedMode='explorar';
-  currentIdentity=null;socialState={saved:[],notifications:[],flags:[],commentVotes:[]};clearSocialSnapshot();communityReady=false;communityError='';items=[];
-  role='visitante';
-  localProfile={username:'',bio:'',avatar:null,cover:null};
-  updateComposerAvatar();
-  closePublicProfile();
-  closeDrawer();
-  closePicker();
-  closeLocationModal();
-  closeExpandedMap();
-  destroyEmbeddedMaps();
-  view='explorar';
-  $('.app-shell').hidden=true;
-  $('#auth-gate').hidden=false;
-  setAuthView('login');
-  $('#auth-configuration').hidden=state.status!=='unconfigured';
-  if(state.status==='error')setAuthFeedback(state.message||'No fue posible conectarse con Supabase.',true);
+function onIdentityChange(state){
+ if(state.status==='loading')return;
+ const old=currentPersonId(),wasChecked=sessionChecked;sessionChecked=true;routeReady=true;
+ $('#boot-status').hidden=true;
+ const r=parseRoute(location.pathname,location.search);
+ if(state.status==='signed_in'){
+   guestMode=false;currentIdentity=state;role=state.role;
+   if(old!==state.user.id||!wasChecked){forum?.reset();localProfile=loadLocalProfile(state.user.id);clearSocialSnapshot();communityReady=false;communityError='';items=[];rememberCurrentPerson();}
+   $('#auth-configuration').hidden=true;
+   if(!recoveryCompleted&&(state.recovery||recoveryAtBoot)){showAuth('recover',true);return;}
+   if(r.auth==='recover'&&!recoveryCompleted){showAuth('recover',true);return;}
+   if(r.auth){const target=returnAfterLogin||'/';returnAfterLogin=null;writeRoute(target,true);}
+   applyLocation();
+   if(old!==state.user.id||!wasChecked||!communityReady)void refreshCommunity();
+   return;
+ }
+ if(wasChecked&&!old&&guestMode&&state.status==='signed_out'){if(r.auth)showAuth(r.auth,true);else if(!$('#auth-gate').hidden)applyLocation();return;}
+ forum?.reset();currentIdentity=null;role='visitante';guestMode=true;feedMode='explorar';
+ socialState={saved:[],notifications:[],flags:[],commentVotes:[]};clearSocialSnapshot();items=[];communityReady=false;communityError='';localProfile={username:'',bio:'',avatar:null,cover:null};
+ closePublicProfile();closeDrawer();closePicker();closeLocationModal();closeExpandedMap();destroyEmbeddedMaps();
+ applyLocation();$('#auth-configuration').hidden=state.status!=='unconfigured';
+ if(state.status==='error'&&!$('#auth-gate').hidden)setAuthFeedback(state.message||'No fue posible verificar la sesión.',true);
+ if($('#auth-gate').hidden)void refreshCommunity();
 }
-function enterVisitor(next='explorar'){guestMode=true;currentIdentity=null;role='visitante';view=next;$('#auth-gate').hidden=true;$('.app-shell').hidden=false;render();ensureMap();void refreshCommunity();}
+function enterVisitor(next='explorar'){returnAfterLogin=null;writeRoute(next==='about'?'/nosotros':'/');applyLocation();if(!communityReady)void refreshCommunity();}
 $('#guest-enter').addEventListener('click',()=>enterVisitor());
 $('#auth-about').addEventListener('click',()=>enterVisitor('about'));
 
-document.querySelectorAll('[data-auth-view]').forEach(button => button.addEventListener('click',()=>setAuthView(button.dataset.authView)));
+document.querySelectorAll('[data-auth-view]').forEach(button => button.addEventListener('click',()=>showAuth(button.dataset.authView)));
 for(const form of document.querySelectorAll('#auth-gate .auth-form')) {
   form.addEventListener('submit',async event=>{
     event.preventDefault();
@@ -1130,7 +1107,9 @@ for(const form of document.querySelectorAll('#auth-gate .auth-form')) {
       } else if(authView==='recover') {
         if(password!==confirm)throw Error('Las contraseñas no coinciden.');
         await changePassword(password);
+        recoveryCompleted=true;
         form.reset();
+        writeRoute('/',true);
         await refreshIdentity();
         showToast('Contraseña actualizada.');
       }
@@ -1141,6 +1120,7 @@ for(const form of document.querySelectorAll('#auth-gate .auth-form')) {
 }
 void loadBundledRegions().then(count=>{geoRegionsAvailable=count>0;setRegionData();if(currentIdentity)render();});
 installV20();
+installRouter();
 void initializeAuth(onIdentityChange);
 
 function v13Button(kind,id,label){return '<button type="button" class="v13-panel-button" data-v13="'+esc(kind)+'" data-v13-id="'+esc(id||'')+'">'+esc(label)+'</button>';}
@@ -1154,7 +1134,7 @@ function renderV13Panel(){const p=$('#v13-panel');let body='';
  p.innerHTML=body||'<p>Sin resultados.</p>';
 }
 function promptV13(title,fields){return new Promise(resolve=>{const d=document.createElement('dialog');d.className='v13-dialog';d.innerHTML='<form method="dialog"><h2>'+esc(title)+'</h2>'+fields.map(f=>'<label>'+esc(f.label)+(f.options?'<select name="'+esc(f.name)+'">'+f.options.map(o=>'<option>'+esc(o)+'</option>').join('')+'</select>':f.multiline?'<textarea name="'+esc(f.name)+'" maxlength="'+f.max+'" '+(f.required?'required':'')+'>'+esc(f.value||'')+'</textarea>':'<input name="'+esc(f.name)+'" value="'+esc(f.value||'')+'" maxlength="'+f.max+'" '+(f.required?'required':'')+'>')+'</label>').join('')+'<div class="v13-actions"><button type="submit" value="cancel" formnovalidate>Cancelar</button><button type="submit" value="ok">Confirmar</button></div></form>';document.body.append(d);d.addEventListener('close',()=>{const data=d.returnValue==='ok'?Object.fromEntries(new FormData(d.querySelector('form'))):null;d.remove();resolve(data);},{once:true});d.showModal();});}
-async function shareV13(id){const url=new URL(location.origin+location.pathname);url.searchParams.set('post',id);const d=document.createElement('dialog');d.className='v13-dialog';d.innerHTML='<form method="dialog"><h2>Compartir publicación</h2><input readonly value="'+esc(url.href)+'"><div class="v13-actions"><button type="button" data-copy>Copiar enlace</button><a target="_blank" rel="noopener noreferrer" href="https://wa.me/?text='+encodeURIComponent(url.href)+'">WhatsApp</a><a target="_blank" rel="noopener noreferrer" href="https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(url.href)+'">Facebook</a></div><button>Cerrar</button></form>';document.body.append(d);d.querySelector('[data-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(url.href);showToast('Enlace copiado.');}catch{d.querySelector('input').select();}};d.addEventListener('close',()=>d.remove(),{once:true});d.showModal();}
+async function shareV13(id){const item=items.find(p=>p.id===id);if(!item||item.review!=='approved')return;const url=new URL(postPath(item),location.origin);const d=document.createElement('dialog');d.className='v13-dialog';d.innerHTML='<form method="dialog"><h2>Compartir publicación</h2><input readonly value="'+esc(url.href)+'"><div class="v13-actions"><button type="button" data-copy>Copiar enlace</button><a target="_blank" rel="noopener noreferrer" href="https://wa.me/?text='+encodeURIComponent(url.href)+'">WhatsApp</a><a target="_blank" rel="noopener noreferrer" href="https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(url.href)+'">Facebook</a></div><button>Cerrar</button></form>';document.body.append(d);d.querySelector('[data-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(url.href);showToast('Enlace copiado.');}catch{d.querySelector('input').select();}};d.addEventListener('close',()=>d.remove(),{once:true});d.showModal();}
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-v13]');if(!b)return;const kind=b.dataset.v13,id=b.dataset.v13Id;
  if(kind==='share')return shareV13(id);
  if(kind==='open'){const item=items.find(i=>i.id===id);return item?openPost(item):showToast('Contenido no disponible.');}
@@ -1172,7 +1152,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-v13]
 });
 
 function v13MentionMarkup(value){return String(value||'').split(/(@[a-zA-Z0-9_.]{1,30})/g).map(part=>{if(!part.startsWith('@'))return esc(part);const id=localPersonIds().find(i=>personFor(i)?.username?.toLowerCase()===part.slice(1).toLowerCase());return id?'<button type="button" class="v13-mention" data-profile-id="'+esc(id)+'">'+esc(part)+'</button>':esc(part);}).join('');}
-if('serviceWorker' in navigator&&window.isSecureContext)window.addEventListener('load',()=>{navigator.serviceWorker.register('./service-worker.js').catch(()=>{});});
+if('serviceWorker' in navigator&&window.isSecureContext)window.addEventListener('load',()=>{navigator.serviceWorker.register('/service-worker.js').catch(()=>{});});
 
 let fetchingNotifications=false;
 async function refreshNotificationsV13(){
@@ -1195,8 +1175,8 @@ function jumpToWall(item){
  if(item.coordinates)focusMapItem(item);
  requestAnimationFrame(()=>{const card=[...document.querySelectorAll('#feed-content [data-post-id]')].find(n=>n.dataset.postId===item.id);card?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});scheduleDock();});
 }
-function undockMap(){const home=$('#map-home'),panel=$('#map-panel');if(panel.parentNode!==home){home.append(panel);home.style.minHeight='';$('#wall-companion').classList.remove('is-docked');$('#restore-map').hidden=true;requestAnimationFrame(resizeMap);}}
-function scheduleDock(){if(dockQueued)return;dockQueued=true;requestAnimationFrame(()=>{dockQueued=false;if(view!=='explorar'||mapIsExpanded||$('#map-panel').hidden)return;const home=$('#map-home'),panel=$('#map-panel'),header=$('.v20-top');const dock=home.getBoundingClientRect().bottom<header.getBoundingClientRect().bottom+8;if(dock&&panel.parentNode===home){home.style.minHeight=home.getBoundingClientRect().height+'px';$('#map-dock').append(panel);$('#wall-companion').classList.add('is-docked');$('#restore-map').hidden=false;requestAnimationFrame(resizeMap);}else if(!dock)undockMap();});}
+function undockMap(){const home=$('#map-home'),panel=$('#map-panel');if(panel.parentNode!==home){animateMapMove(()=>{home.append(panel);home.style.minHeight='';$('#wall-companion').classList.remove('is-docked');$('#restore-map').hidden=true;},view==='explorar');}}
+function scheduleDock(){if(dockQueued)return;dockQueued=true;requestAnimationFrame(()=>{dockQueued=false;if(view!=='explorar'||mapIsExpanded||$('#map-panel').hidden)return;const home=$('#map-home'),panel=$('#map-panel'),header=$('.v20-top');const dock=home.getBoundingClientRect().bottom<header.getBoundingClientRect().bottom+90;if(dock&&panel.parentNode===home){animateMapMove(()=>{home.style.minHeight=home.getBoundingClientRect().height+'px';$('#map-dock').append(panel);$('#wall-companion').classList.add('is-docked');$('#restore-map').hidden=false;},true);}else if(!dock)undockMap();});}
 function renderAbout(){
  $('#about-panel').innerHTML='<article class="about-card"><div class="about-hero"><img src="./assets/isotipo.png" alt="MZT Conecta"><div><p>MAZATLÁN · SINALOA</p><h1>¿Quiénes somos?</h1><p>Una comunidad conectada con su ciudad.</p></div></div><div class="about-copy"><h2>MZT Conecta</h2><p>Somos un proyecto comunitario que busca acercar a las personas de Mazatlán a lo que sucede en su ciudad. Reunimos noticias, actividades, reportes de infraestructura y conversaciones en un solo lugar.</p><h2>Colaboraciones</h2><p>Queremos sumar esfuerzos con la comunidad, negocios locales y organizaciones para dar a conocer iniciativas y actividades que beneficien a Mazatlán.</p><button class="compose-button" type="button" data-about-home>Volver al muro</button></div></article>';
 }
@@ -1207,14 +1187,91 @@ function renderConnections(){
  $('#connections-panel').innerHTML='<div class="social-back-row"><button class="back-link" data-connections-back type="button">‹ Volver al perfil</button></div><div class="v20-heading"><div><p class="eyebrow">COMUNIDAD</p><h1>'+esc(person.name)+'</h1><p>@'+esc(person.username)+'</p></div></div><div class="connection-tabs"><button type="button" class="filter-chip '+(connectionsMode==='followers'?'is-on':'')+'" data-connections-mode="followers">Seguidores · '+followersOf(connectionsId)+'</button><button type="button" class="filter-chip '+(connectionsMode==='following'?'is-on':'')+'" data-connections-mode="following">Seguidos · '+followingOf(connectionsId)+'</button></div><div class="connection-list">'+(ids.map(row).join('')||'<p class="social-empty">Todavía no hay personas en esta lista.</p>')+'</div>';
 }
 function installV20(){
- forum=createForum($('#forum-panel'),{user:currentPersonId,posts:()=>items,openPost:id=>{const p=items.find(i=>i.id===id);if(p)jumpToWall(p);else showToast('Publicación no disponible. Actualiza el muro.');},login:notSignedIn,toast:showToast});
+ forum=createForum($('#forum-panel'),{user:currentPersonId,posts:()=>items,openPost:id=>{const p=items.find(i=>i.id===id);if(p)jumpToWall(p);else showToast('Publicación no disponible. Actualiza el muro.');},login:notSignedIn,toast:showToast,navigate:path=>writeRoute(path)});
  updateDaily=setupDaily($('#daily-bar'),jumpToWall);updateDaily([],dateISO());
  installSelects();
- $('.v20-top').addEventListener('click',e=>{const b=e.target.closest('[data-top-view]');if(!b)return;setView(b.dataset.topView);scrollTopPage();});
+ $('.v20-top').addEventListener('click',e=>{const b=e.target.closest('[data-top-view]');if(!b)return;if(b.dataset.topView==='explorar')return goHome();setView(b.dataset.topView);scrollTopPage();});
  $('#about-panel').addEventListener('click',e=>{if(e.target.closest('[data-about-home]')){setView('explorar');scrollTopPage();}});
  $('#topic-filters').addEventListener('click',e=>{const b=e.target.closest('[data-topic]');if(!b)return;const set=topics[wallSection],t=b.dataset.topic;if(t==='Todos')set.clear();else if(set.has(t))set.delete(t);else set.add(t);selectedId=null;render();});
- $('#restore-map').addEventListener('click',()=>{scrollTopPage();undockMap();});
+ $('#restore-map').addEventListener('click',()=>scrollTopPage());
  $('#toggle-wall-panels').addEventListener('click',e=>{const b=e.currentTarget;const opened=b.getAttribute('aria-expanded')==='true';b.setAttribute('aria-expanded',String(!opened));$('#wall-panels').classList.toggle('collapsed',opened);});
  $('.main-area').addEventListener('scroll',scheduleDock,{passive:true});window.addEventListener('scroll',scheduleDock,{passive:true});window.addEventListener('resize',scheduleDock);
- $('#connections-panel').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.hasAttribute('data-connections-back')){profileId=connectionsId||currentPersonId();profileTab='publicaciones';view='mi-cuenta';render();scrollTopPage();return;}if(b.dataset.connectionsMode){connectionsMode=b.dataset.connectionsMode;renderConnections();return;}if(b.dataset.connectionProfile){openProfile(b.dataset.connectionProfile);return;}const id=b.dataset.connectionFollow;if(!id||!currentPersonId()||id===currentPersonId())return;b.disabled=true;try{await requireCommunity();await followServer(currentPersonId(),id,isFollowing(currentPersonId(),id));await refreshCommunity({quiet:true});}catch(error){showToast(error.message||'No se pudo actualizar el seguimiento.');}finally{if(b.isConnected)b.disabled=false;}});
+ $('#connections-panel').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;if(b.hasAttribute('data-connections-back')){profileId=connectionsId||currentPersonId();profileTab='publicaciones';view='mi-cuenta';render();scrollTopPage();return;}if(b.dataset.connectionsMode){connectionsMode=b.dataset.connectionsMode;syncRoute();renderConnections();return;}if(b.dataset.connectionProfile){openProfile(b.dataset.connectionProfile);return;}const id=b.dataset.connectionFollow;if(!id||!currentPersonId()||id===currentPersonId())return;b.disabled=true;try{await requireCommunity();await followServer(currentPersonId(),id,isFollowing(currentPersonId(),id));await refreshCommunity({quiet:true});}catch(error){showToast(error.message||'No se pudo actualizar el seguimiento.');}finally{if(b.isConnected)b.disabled=false;}});
+}
+
+/* v2.1: navegación por historial y transiciones sin recrear el mapa. */
+let mapAnimation=null;
+function animateMapMove(move,animated){
+ const panel=$('#map-panel'),before=panel.getBoundingClientRect();mapAnimation?.cancel();mapAnimation=null;
+ move();resizeMap();const after=panel.getBoundingClientRect();
+ $('#wall-companion').classList.remove('map-animating');
+ if(!animated||matchMedia('(prefers-reduced-motion: reduce)').matches||!before.width||!after.width||!before.height||!after.height)return;
+ const dx=before.left-after.left,dy=before.top-after.top,sx=before.width/after.width,sy=before.height/after.height;
+ if(!panel.animate)return;
+ const anim=panel.animate([{transformOrigin:'top left',transform:'translate('+dx+'px,'+dy+'px) scale('+sx+','+sy+')',zIndex:12},{transformOrigin:'top left',transform:'none',zIndex:12}],{duration:380,easing:'cubic-bezier(.22,1,.36,1)'});
+ mapAnimation=anim;$('#wall-companion').classList.add('map-animating');anim.onfinish=()=>{if(mapAnimation===anim){mapAnimation=null;$('#wall-companion').classList.remove('map-animating');}resizeMap();};anim.oncancel=()=>$('#wall-companion').classList.remove('map-animating');
+}
+function writeRoute(path,replace=false){
+ if(routeLock||!routeReady||location.pathname+location.search===path)return;
+ if(!replace)history.replaceState({...history.state,scroll:window.scrollY,filters:{advanced:{...advanced},search,topics:Object.fromEntries(Object.entries(topics).map(([k,v])=>[k,[...v]]))}},'',location.href);
+ history[replace?'replaceState':'pushState'](replace?{...history.state}:{fromApp:true},'',path);
+}
+function pathForCurrent(){
+ if(view==='publicacion'){const p=items.find(i=>i.id===selectedId);return p?postPath(p):null;}
+ if(view==='foro')return parseRoute(location.pathname).view==='foro'?location.pathname:'/foro';
+ if(view==='explorar')return feedMode==='siguiendo'?'/muro/siguiendo':wallSection==='news'&&location.pathname==='/'?'/':'/muro/'+sections[wallSection];
+ if(view==='mi-cuenta'){const p=personFor(profileId);return profileId&&profileId!==currentPersonId()?(p?profilePath(p):null):'/cuenta';}
+ if(view==='connections'){const p=personFor(connectionsId);return p?profilePath(p,connectionsMode):null;}
+ return viewPaths[view]||'/';
+}
+function syncRoute(){if(routeLock||pendingRoute||!routeReady||!$('#auth-gate').hidden)return;const path=pathForCurrent();if(path)writeRoute(path);}
+function showAuth(kind,replace=false){
+ pendingRoute=null;closeExpandedMap();$('#boot-status').hidden=true;$('.app-shell').hidden=true;$('#auth-gate').hidden=false;
+ setAuthView(kind);writeRoute(authPaths[kind]||authPaths.login,replace);
+}
+function resolveRouteContent(r){
+ if(r.view==='publicacion'){selectedId=r.id;view='publicacion';return;}
+ if(r.username){
+  const id=localPersonIds().find(id=>personFor(id)?.username?.toLowerCase()===r.username);
+  if(r.view==='connections'){connectionsId=id||null;connectionsMode=r.mode;}
+  else{profileId=id||'missing';profileTab='publicaciones';}
+ }
+}
+function applyLocation(){
+ if(!sessionChecked)return;
+ const r=parseRoute(location.pathname,location.search);
+ if(r.auth){showAuth(r.auth,true);return;}
+ if(!canOpenView(r.view)){if(!currentPersonId()){returnAfterLogin=location.pathname+location.search;showAuth('login',true);return;}showToast('No tienes permiso para abrir este apartado.');writeRoute('/',true);return applyLocation();}
+ $('#auth-gate').hidden=true;$('.app-shell').hidden=false;$('#boot-status').hidden=true;
+ routeLock=true;pendingRoute=null;
+ try{
+  if(r.view==='explorar'){wallSection=r.section;feedMode=r.mode==='siguiendo'&&currentPersonId()?'siguiendo':'explorar';}
+  if(r.view==='foro')forum?.route(r);
+  if(r.view==='publicacion'||r.username){
+   if(r.view==='publicacion'){selectedId=r.id;view='publicacion';}
+   else{view=r.view;profileId=null;}
+   pendingRoute=r;
+   if(communityReady&&(r.view==='publicacion'?items.some(i=>i.id===r.id):localPersonIds().some(id=>personFor(id)?.username?.toLowerCase()===r.username))){pendingRoute=null;resolveRouteContent(r);}
+   render();
+  }else setView(r.view);
+ }finally{routeLock=false;}
+ if(r.invalid){writeRoute('/',true);showToast('La dirección no existe. Mostrando el muro.');}
+ if(r.view==='explorar')ensureMap();
+ if(pendingRoute||!communityReady)void refreshCommunity();
+}
+function installRouter(){
+ history.scrollRestoration='manual';
+ window.addEventListener('popstate',()=>{const f=history.state?.filters;if(f){advanced={...f.advanced};search=f.search||'';$('#search-input').value=search;for(const k of Object.keys(topics))topics[k]=new Set(f.topics[k]||[]);}applyLocation();const y=history.state?.scroll||0;requestAnimationFrame(()=>window.scrollTo({top:y,behavior:'instant'}));});
+ // Los botones de navegación existentes conservan su comportamiento; clic modificado abre otra pestaña.
+ document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-open],[data-profile-id],[data-view],[data-top-view]');
+  if(!el||el.dataset.action==='follow'||e.button!==0)return;
+  if(el.matches('a[href]')){if(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey){e.stopPropagation();return;}e.preventDefault();return;}
+  if(!(e.ctrlKey||e.metaKey||e.shiftKey))return;
+  let path=null;
+  if(el.dataset.open){const p=items.find(i=>i.id===el.dataset.open);if(p)path=postPath(p);}
+  else if(el.dataset.profileId){const p=personFor(el.dataset.profileId);if(p)path=profilePath(p);}
+  else {const v=el.dataset.view||el.dataset.topView;path=v==='explorar'?'/':v==='foro'?'/foro':viewPaths[v];}
+  if(path){e.preventDefault();e.stopImmediatePropagation();window.open(path,'_blank','noopener');}
+ },true);
 }

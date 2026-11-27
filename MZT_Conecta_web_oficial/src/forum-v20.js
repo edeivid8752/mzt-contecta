@@ -1,4 +1,5 @@
 import {getAuthClient} from './auth.js';
+import {threadPath,slug} from './router-v21.js';
 const categories=['Infraestructura','Qué hacer','Ideas para Mazatlán','Playas','Comunidad','Movilidad'];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function api(){const c=await getAuthClient();if(!c)throw Error('No fue posible conectar con el foro.');return c;}
@@ -7,7 +8,7 @@ export function createForum(root,ctx){
  let topic='all',sort='popular',thread=null,snapshot={threads:[],replies:[]},request=0,busy=false,identity='';
  const who=t=>esc(t.display_name)+' · @'+esc(t.username);
  const when=t=>esc(new Date(t.created_at).toLocaleDateString('es-MX'));
- function row(t){return '<article class="forum-card"><div class="forum-votes"><button type="button" data-vote="1" data-thread="'+esc(t.id)+'" aria-label="Voto positivo" aria-pressed="'+(t.my_vote===1)+'">▲</button><strong>'+t.score+'</strong><button type="button" data-vote="-1" data-thread="'+esc(t.id)+'" aria-label="Voto negativo" aria-pressed="'+(t.my_vote===-1)+'">▼</button></div><div><small>'+esc(t.category)+' · '+who(t)+'</small><button type="button" class="forum-title" data-thread-open="'+esc(t.id)+'">'+esc(t.title)+'</button><p>'+esc(t.body)+'</p><small>'+Number(t.reply_count)+' respuestas · '+when(t)+'</small>'+(t.post_id?'<button type="button" class="forum-link" data-forum-post="'+esc(t.post_id)+'">Ver publicación vinculada en el mapa</button>':'')+'</div></article>';}
+ function row(t){return '<article class="forum-card"><div class="forum-votes"><button type="button" data-vote="1" data-thread="'+esc(t.id)+'" aria-label="Voto positivo" aria-pressed="'+(t.my_vote===1)+'">▲</button><strong>'+t.score+'</strong><button type="button" data-vote="-1" data-thread="'+esc(t.id)+'" aria-label="Voto negativo" aria-pressed="'+(t.my_vote===-1)+'">▼</button></div><div><small>'+esc(t.category)+' · '+who(t)+'</small><a class="forum-title" href="'+esc(threadPath(t))+'" data-thread-open="'+esc(t.id)+'">'+esc(t.title)+'</a><p>'+esc(t.body)+'</p><small>'+Number(t.reply_count)+' respuestas · '+when(t)+'</small>'+'<button type="button" class="forum-link" data-share-thread="'+esc(t.id)+'">Compartir conversación</button>'+(t.post_id?'<button type="button" class="forum-link" data-forum-post="'+esc(t.post_id)+'">Ver publicación vinculada en el mapa</button>':'')+'</div></article>';}
  function paint(){
   const t=snapshot.threads.find(t=>t.id===thread),u=ctx.user();
   root.innerHTML='<div class="v20-heading"><div><p class="eyebrow">CONVERSACIONES DE LA COMUNIDAD</p><h1>Foro</h1><p>Pregunta, comparte ideas y conversa sobre Mazatlán.</p></div>'+(u&&!thread?'<button type="button" data-forum-new class="compose-button">Nueva conversación</button>':'')+'</div>';
@@ -17,7 +18,7 @@ export function createForum(root,ctx){
  }
  async function refresh(){
   const uid=ctx.user()||'';
-  if(uid!==identity){identity=uid;thread=null;snapshot={threads:[],replies:[]};}
+  if(uid!==identity){identity=uid;snapshot={threads:[],replies:[]};}
   const seq=++request;
   root.setAttribute('aria-busy','true');
   try{
@@ -33,18 +34,19 @@ export function createForum(root,ctx){
   if(!ctx.user())return ctx.login();
   const d=document.createElement('dialog');d.className='v13-dialog';
   d.innerHTML='<form><h2>Nueva conversación</h2><label>Título<input name="title" required minlength="3" maxlength="110"></label><label>Categoría<select name="category">'+categories.map(c=>'<option>'+esc(c)+'</option>').join('')+'</select></label><label>Contenido<textarea name="body" required maxlength="2000" rows="5"></textarea></label><label>Publicación del mapa (opcional)<select name="post"><option value="">Sin vínculo</option>'+ctx.posts().filter(p=>p.review==='approved'&&p.coordinates).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.title)+'</option>').join('')+'</select></label><div class="v13-actions"><button type="button" data-cancel>Cancelar</button><button type="submit">Publicar conversación</button></div></form>';
-  document.body.append(d);d.querySelector('[data-cancel]').onclick=()=>d.close();d.addEventListener('close',()=>d.remove(),{once:true});d.querySelector('form').onsubmit=e=>{e.preventDefault();if(busy)return;const f=new FormData(e.target),title=String(f.get('title')).trim(),body=String(f.get('body')).trim();if(title.length<3||!body)return ctx.toast('Completa los campos.');const b=e.target.querySelector('[type=submit]');b.disabled=true;void write(async(c,u)=>{try{const row=ok(await c.from('mzt_forum_threads').insert({user_id:u,title,body,category:f.get('category'),post_id:f.get('post')||null}).select('id').single());thread=row.id;d.close();}finally{if(b.isConnected)b.disabled=false;}});};d.showModal();
+  document.body.append(d);d.querySelector('[data-cancel]').onclick=()=>d.close();d.addEventListener('close',()=>d.remove(),{once:true});d.querySelector('form').onsubmit=e=>{e.preventDefault();if(busy)return;const f=new FormData(e.target),title=String(f.get('title')).trim(),body=String(f.get('body')).trim();if(title.length<3||!body)return ctx.toast('Completa los campos.');const b=e.target.querySelector('[type=submit]');b.disabled=true;void write(async(c,u)=>{try{const row=ok(await c.from('mzt_forum_threads').insert({user_id:u,title,body,category:f.get('category'),post_id:f.get('post')||null}).select('id').single());thread=row.id;ctx.navigate(threadPath({id:row.id,title}));d.close();}finally{if(b.isConnected)b.disabled=false;}});};d.showModal();
  }
- root.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ root.addEventListener('click',e=>{const b=e.target.closest('button,a[data-thread-open]');if(!b)return;if(b.matches('a')&&(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey))return;if(b.matches('a'))e.preventDefault();
   if(b.hasAttribute('data-forum-retry'))return show();
-  if(b.hasAttribute('data-forum-back')){thread=null;return show();}
-  if(b.dataset.threadOpen){thread=b.dataset.threadOpen;return show();}
-  if(b.dataset.forumTopic){topic=b.dataset.forumTopic;thread=null;return show();}
+  if(b.dataset.shareThread){const t=snapshot.threads.find(t=>t.id===b.dataset.shareThread);if(t){const url=new URL(threadPath(t),location.origin).href;if(navigator.clipboard)navigator.clipboard.writeText(url).then(()=>ctx.toast('Enlace copiado.'),()=>window.prompt('Compartir conversación',url));else window.prompt('Compartir conversación',url);}return;}
+  if(b.hasAttribute('data-forum-back')){thread=null;ctx.navigate(topic==='all'?'/foro':'/foro/'+slug(topic));return show();}
+  if(b.dataset.threadOpen){thread=b.dataset.threadOpen;const t=snapshot.threads.find(t=>t.id===thread);if(t)ctx.navigate(threadPath(t));return show();}
+  if(b.dataset.forumTopic){topic=b.dataset.forumTopic;thread=null;ctx.navigate(topic==='all'?'/foro':'/foro/'+slug(topic));return show();}
   if(b.dataset.forumPost)return ctx.openPost(b.dataset.forumPost);
   if(b.hasAttribute('data-forum-new'))return newThread();
   if(b.dataset.vote){const t=snapshot.threads.find(t=>t.id===b.dataset.thread),value=Number(b.dataset.vote);if(!t)return;void write(async(c,u)=>{let q;if(t.my_vote===value)q=c.from('mzt_forum_votes').delete().eq('thread_id',t.id).eq('user_id',u);else if(t.my_vote)q=c.from('mzt_forum_votes').update({value}).eq('thread_id',t.id).eq('user_id',u);else q=c.from('mzt_forum_votes').insert({thread_id:t.id,user_id:u,value});ok(await q);});}
  });
  root.addEventListener('change',e=>{if(e.target.id==='forum-sort'){sort=e.target.value;show();}});
  root.addEventListener('submit',e=>{if(e.target.id!=='forum-reply-form')return;e.preventDefault();const body=String(new FormData(e.target).get('body')).trim(),id=thread;if(!body)return ctx.toast('Escribe una respuesta.');void write(async(c,u)=>{ok(await c.from('mzt_forum_replies').insert({thread_id:id,user_id:u,body}));});});
- return {show,reset(){request++;identity='';thread=null;snapshot={threads:[],replies:[]};root.replaceChildren();}};
+ return {show,route(r){topic=r.topic||'all';thread=r.thread||null;},reset(){request++;identity='';thread=null;snapshot={threads:[],replies:[]};root.replaceChildren();}};
 }

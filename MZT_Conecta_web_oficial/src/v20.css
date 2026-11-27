@@ -23,3 +23,5 @@
 @media(prefers-reduced-motion:reduce){.mzt-select-list{animation:none}.v20-tabs button{transition:none}}
 
 .v20-top{flex:none}.daily-headlines{display:flex;align-items:center;gap:6px;flex:1;min-width:0}.wall-pin-shape{fill:var(--pin);stroke:white;stroke-width:1.5}.wall-pin.resolved{--pin:#2a8958}.event-card{scroll-margin-top:82px}.stat-icon.green{background:#e0f5ee;color:#168c70}#wall-panels.collapsed{display:none}.about-hero{min-height:210px}.about-hero img{width:88px;max-height:88px;object-fit:contain;margin-bottom:12px}.about-hero h1{color:white}.mzt-select{max-width:100%}@media(max-width:760px){.event-card{scroll-margin-top:280px}.daily-bar{flex-wrap:wrap}.weather{margin-left:auto}.v20-brand{display:none}}
+/* v2.1 */
+#wall-companion.map-animating{overflow:visible;z-index:13}.map-panel.map-hero{transform-origin:top left}.post-open[href]{display:block;color:inherit;text-decoration:none}.forum-title[href]{text-decoration:none}.forum-title[href]:hover,.post-open[href]:hover h3{text-decoration:underline;text-decoration-color:var(--skin-primary);text-underline-offset:4px}
