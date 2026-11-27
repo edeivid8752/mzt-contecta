@@ -829,7 +829,7 @@ $('#account-panel').addEventListener('click', e => {
     if (!currentIdentity?.user?.email) return;
     void requestPasswordReset(currentIdentity.user.email)
       .then(() => showToast('Revisa tu correo para cambiar la contraseña.'))
-      .catch(() => showToast('No se pudo enviar el enlace. Revisa la configuración del correo en Supabase.'));
+      .catch(error => showToast(error?.message||'No se pudo enviar el enlace. Revisa la configuración del correo en Supabase.'));
     return;
   }
   const preset = e.target.closest('[data-theme-preset]');

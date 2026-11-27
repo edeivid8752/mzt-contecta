@@ -1,4 +1,5 @@
 import {registrationProfile} from './profile.js';
+import {getCaptchaToken} from './turnstile-v23.js';
 import {SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY} from './supabase-config.js';
 
 let clientPromise = null;
@@ -94,7 +95,8 @@ export async function createAccount(email, password, displayName, username) {
     return data === true;
   };
   if(!await available()) throw Error('Ese nombre de usuario ya está ocupado. Elige otro.');
-  const {data, error} = await client.auth.signUp({email, password, options: {data:profile,emailRedirectTo: location.origin + '/'}});
+  const captchaToken=await getCaptchaToken();
+  const {data, error} = await client.auth.signUp({email, password, options: {data:profile,emailRedirectTo: location.origin + '/',captchaToken}});
   if (error) {
     // La restricción única del servidor también protege frente a registros simultáneos.
     if(error.code === 'unexpected_failure' || /database error/i.test(error.message||'')) {
@@ -108,7 +110,8 @@ export async function createAccount(email, password, displayName, username) {
 }
 export async function loginAccount(email, password) {
   const client = await requiredClient();
-  const {data, error} = await client.auth.signInWithPassword({email, password});
+  const captchaToken=await getCaptchaToken();
+  const {data, error} = await client.auth.signInWithPassword({email, password,options:{captchaToken}});
   if (error) throw error;
   return data;
 }
@@ -119,7 +122,8 @@ export async function logoutAccount() {
 }
 export async function requestPasswordReset(email) {
   const client = await requiredClient();
-  const {error} = await client.auth.resetPasswordForEmail(email, {redirectTo: location.origin + '/'});
+  const captchaToken=await getCaptchaToken();
+  const {error} = await client.auth.resetPasswordForEmail(email, {redirectTo: location.origin + '/',captchaToken});
   if (error) throw error;
 }
 export async function changePassword(password) {

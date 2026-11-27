@@ -1,4 +1,5 @@
 import {getAuthClient} from './auth.js';
+import {getCaptchaToken} from './turnstile-v23.js';
 import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from './supabase-config.js';
 const ok=r=>{if(r.error)throw Error(r.error.message||'No fue posible completar la operación.');return r.data;};
 async function api(){const c=await getAuthClient();if(!c)throw Error('No hay conexión con Supabase.');return c;}
@@ -13,7 +14,8 @@ async function visitorSession(){
   const c=await visitorClient();
   const session=ok(await c.auth.getSession()).session;
   if(session){const u=ok(await c.auth.getUser()).user;if(u?.is_anonymous===true)return {c,uid:u.id};throw Error('La sesión de visitante no es válida.');}
-  const r=await c.auth.signInAnonymously();
+  const captchaToken=await getCaptchaToken();
+  const r=await c.auth.signInAnonymously({options:{captchaToken}});
   if(r.error){if(r.error.code==='anonymous_provider_disabled')throw Error('Las publicaciones de visitantes todavía no están habilitadas.');throw Error(r.error.message);}
   if(!r.data.user?.is_anonymous)throw Error('No se pudo verificar la sesión de visitante.');
   return {c,uid:r.data.user.id};

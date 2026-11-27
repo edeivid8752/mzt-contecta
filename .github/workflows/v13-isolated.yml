@@ -44,6 +44,7 @@ jobs:
           node --experimental-default-type=module tests/v222.test.mjs
           node --experimental-default-type=module tests/v222-drafts.test.mjs
           node --experimental-default-type=module tests/v23.test.mjs
+          node --experimental-default-type=module tests/v23-turnstile.test.mjs
           node --experimental-default-type=module tests/v12.test.mjs
           node --experimental-default-type=module tests/v13.test.mjs
           node --experimental-default-type=module tests/v131.test.mjs

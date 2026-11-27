@@ -16,7 +16,8 @@
 **Participación de visitantes**
 - Publicaciones sociales y reportes con etiqueta «Publicación de un visitante», mediante sesión anónima sin perfil público.
 - Revisión editorial obligatoria y límites de envío; fotografías opcionales.
-- La publicación de visitantes requiere habilitar Anonymous Sign-Ins en Supabase Auth y revisar la protección CAPTCHA antes de abrirla al público.
+- Protección Cloudflare Turnstile para el registro, inicio de sesión, recuperación de contraseña y creación de sesiones de visitantes; validación del token en Supabase Auth.
+- Para habilitar el envío de visitantes, desplegar el cliente con Turnstile y verificarlo antes de habilitar CAPTCHA y Anonymous Sign-Ins en Supabase. La clave secreta se configura exclusivamente en Supabase.
 
 ### v2.2.2 — Conservación de formularios y sesión
 

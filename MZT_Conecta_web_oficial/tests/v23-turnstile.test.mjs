@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createCaptchaChallenge,TURNSTILE_SITE_KEY} from '../src/turnstile-v23.js';
+assert.match(TURNSTILE_SITE_KEY,/^0x4[A-Za-z0-9_-]+$/);
+let options,removed,dialog;
+const fakeElement=()=>({textContent:'',handlers:{},addEventListener(e,f){this.handlers[e]=f;}});
+const doc={body:{append(){}},createElement(){
+ const nodes=new Map(), d={...fakeElement(),open:false,setAttribute(){},querySelector(s){if(!nodes.has(s))nodes.set(s,fakeElement());return nodes.get(s)},showModal(){this.open=true;},close(){this.open=false;this.handlers.close?.()},remove(){this.removed=true;}};
+ dialog=d;return d;
+}};
+const load=async()=>({render(el,opts){options=opts;return 'widget';},remove(id){removed=id;}});
+const challenge=createCaptchaChallenge({load,doc,timeout:5000});
+const ready=()=>new Promise(r=>setImmediate(r));
+let p=challenge();await ready();assert.equal(options.sitekey,TURNSTILE_SITE_KEY);await assert.rejects(challenge(),/en curso/);options.callback('token-1');assert.equal(await p,'token-1');assert.equal(removed,'widget');assert(dialog.removed);
+p=challenge();await ready();options.callback('token-2');assert.equal(await p,'token-2');
+p=challenge();await ready();const rejected=assert.rejects(p,/cancelada/);dialog.querySelector('[data-captcha-cancel]').handlers.click();await rejected;
+p=challenge();await ready();const expired=assert.rejects(p,/venció/);options['expired-callback']();await expired;
+p=challenge();await ready();const failed=assert.rejects(p,/No se pudo completar/);options['error-callback']();await failed;
+await assert.rejects(createCaptchaChallenge({load:async()=>{throw Error('bloqueado')},doc})(),/bloqueado/);
+const auth=readFileSync(new URL('../src/auth.js',import.meta.url),'utf8');
+const visitor=readFileSync(new URL('../src/community-v23.js',import.meta.url),'utf8');
+assert(auth.includes("signUp({email, password, options: {data:profile,emailRedirectTo: location.origin + '/',captchaToken}})"));
+assert(auth.includes('signInWithPassword({email, password,options:{captchaToken}})'));
+assert(auth.includes("resetPasswordForEmail(email, {redirectTo: location.origin + '/',captchaToken})"));
+assert(visitor.includes('signInAnonymously({options:{captchaToken}})'));
+assert(visitor.indexOf('if(session)')<visitor.indexOf('await getCaptchaToken()'));
+console.log('Pruebas de Turnstile y entrega del token a Supabase correctas');
