@@ -1,8 +1,24 @@
-# MZT Conecta — v2.1
+# MZT Conecta — v2.2
 
 **[mztconecta.com](https://mztconecta.com)** · Porque lo que pasa en Mazatlán nos une.
 
 ## Historial de actualizaciones
+
+### v2.2 — Publicidad y comercio local
+
+**Publicidad y negocios**
+- Registro y revisión de establecimientos desde cuentas de la comunidad.
+- Panel Mi negocio para administrar información comercial y solicitar campañas.
+- Publicidad lateral y publicaciones patrocinadas con fondo amarillo sutil.
+- Administración de campañas, aprobación, pausa, programación, renovación y vencimiento automático.
+- Enlaces a sitios web, redes sociales y ubicaciones de establecimientos.
+- Estadísticas de visualizaciones y clics de cuentas registradas.
+- Permisos comerciales privados de Administrador y Propietario, independientes de la moderación editorial.
+
+**Interfaz móvil**
+- Mapa, Tendencias y Actividad del día integrados al desplazamiento natural del muro.
+- Botón flotante para regresar al mapa mediante desplazamiento suave.
+- Adaptación de espacios publicitarios y formularios comerciales a pantallas pequeñas.
 
 ### v2.1 — Navegación, fluidez y privacidad
 
@@ -68,10 +84,12 @@
 
 ## Guía técnica de actualización
 
-- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`, `supabase/upgrade_v20.sql`, `supabase/upgrade_v21.sql`. No ejecutar scripts antiguos de instalación sobre producción.
+- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`, `supabase/upgrade_v20.sql`, `supabase/upgrade_v21.sql`, `supabase/upgrade_v22.sql`. No ejecutar scripts antiguos de instalación sobre producción.
 - La actualización v1.3.1 utiliza los metadatos de registro solo para el nombre visible y el identificador, nunca para asignar roles.
 - El índice único de perfiles evita duplicados incluso con registros simultáneos. La consulta de disponibilidad devuelve únicamente un booleano.
 - GitHub Actions verifica JavaScript y las migraciones de PostgreSQL en una base aislada.
 - Render conserva la configuración existente, incluyendo manifest y service worker. No publicar claves privadas.
 
 - Render: configurar una regla Rewrite de `/*` a `/index.html` para servir las rutas directas; los archivos estáticos existentes conservan sus rutas. Mantener el despliegue manual.
+
+Los accesos comerciales se administran en `mzt_ad_staff`; la asignación inicial de Propietario debe realizarse desde Supabase a la cuenta autorizada. El propietario puede conceder y retirar administración comercial desde la plataforma. Las campañas se muestran únicamente cuando el establecimiento y la campaña están aprobados y dentro de su vigencia.

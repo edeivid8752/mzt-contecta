@@ -19,6 +19,8 @@ La experiencia combina un **muro de publicaciones** con un **mapa interactivo** 
 - **Personalizar tu perfil:** modificar nombre, biografía, fotografía, portada y colores de la interfaz.
 - **Mantenerte informado:** consultar tendencias de cada sección, titulares, eventos y clima.
 - **Guardar y compartir publicaciones:** conservar contenido de interés y compartir enlaces directos a publicaciones y conversaciones.
+- **Promocionar negocios locales:** registrar establecimientos, solicitar campañas y consultar sus estadísticas.
+- **Consultar publicidad local:** descubrir negocios mediante anuncios identificados y enlaces comerciales.
 - **Conocer MZT Conecta:** consultar la información del proyecto y su espacio de colaboraciones.
 - **Moderar la comunidad:** los reportes ciudadanos pasan por revisión antes de mostrarse en el muro general.
 
@@ -34,6 +36,22 @@ La experiencia combina un **muro de publicaciones** con un **mapa interactivo** 
 Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de moderación se controlan desde la base de datos.
 
 ## Historial de actualizaciones
+
+### v2.2 — Publicidad y comercio local
+
+**Publicidad y negocios**
+- Registro y revisión de establecimientos desde cuentas de la comunidad.
+- Panel Mi negocio para administrar información comercial y solicitar campañas.
+- Publicidad lateral y publicaciones patrocinadas con fondo amarillo sutil.
+- Administración de campañas, aprobación, pausa, programación, renovación y vencimiento automático.
+- Enlaces a sitios web, redes sociales y ubicaciones de establecimientos.
+- Estadísticas de visualizaciones y clics de cuentas registradas.
+- Permisos comerciales privados de Administrador y Propietario, independientes de la moderación editorial.
+
+**Interfaz móvil**
+- Mapa, Tendencias y Actividad del día integrados al desplazamiento natural del muro.
+- Botón flotante para regresar al mapa mediante desplazamiento suave.
+- Adaptación de espacios publicitarios y formularios comerciales a pantallas pequeñas.
 
 ### v2.1 — Navegación, fluidez y privacidad
 

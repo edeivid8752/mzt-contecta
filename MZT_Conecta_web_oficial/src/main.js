@@ -11,6 +11,7 @@ import {loadNotificationsV13,socialAction,loadCommunity,createPost,updateProfile
 
 import {selectTrends, avatarInitial} from './community-v12.js';
 import {parseRoute, postPath, profilePath, sections, viewPaths, authPaths} from './router-v21.js';
+import {createAds} from './ads-v22.js';
 import {installColorPicker,selectFollowing} from './community-v13.js';
 import {createForum} from './forum-v20.js';
 import {installSelects,refreshSelects} from './selectors-v20.js';
@@ -42,7 +43,7 @@ let mapExpandFocus=null;
 let selectedId = null;
 let search = '';
 let wallSection='news',topics={social:new Set(),news:new Set(),infrastructure:new Set()},connectionsId=null,connectionsMode='followers';
-let forum=null,updateDaily=null,dockQueued=false;
+let forum=null,updateDaily=null,dockQueued=false,ads=null;
 let chosenCoordinates = PLACES[0].coordinates.slice();
 let customMapPoint = false;
 let pickerReturnFocus = null;
@@ -239,7 +240,7 @@ function embeddedMap(item){
 function openExpandedMap(){
   if(mapIsExpanded||view!=='explorar')return;
   mapIsExpanded=true;mapExpandFocus=document.activeElement;
-  $('#expanded-map-overlay').hidden=false;
+  $('#expanded-map-overlay').hidden=false;$('#mobile-map-return').hidden=true;
   $('#expanded-map-host').appendChild($('#map'));
   $('#expanded-map-count').textContent=`${visibleForDay().filter(i=>i.coordinates).length} publicaciones con ubicación según los filtros activos`;
   $('#expanded-map-close').focus({preventScroll:true});
@@ -249,7 +250,7 @@ function closeExpandedMap(){
   if(!mapIsExpanded)return;
   mapIsExpanded=false;
   $('#map-panel').prepend($('#map'));
-  $('#expanded-map-overlay').hidden=true;
+  $('#expanded-map-overlay').hidden=true;scheduleDock();
   requestAnimationFrame(resizeMap);
   if(mapExpandFocus?.isConnected)mapExpandFocus.focus({preventScroll:true});
 }
@@ -431,11 +432,11 @@ function empty(title,desc,buttonText='',action=''){
   return `<div class="empty-state"><span class="empty-icon">⌖</span><strong>${esc(title)}</strong><p>${esc(desc)}</p>${buttonText?`<button type="button" data-action="${esc(action)}">${esc(buttonText)}</button>`:''}</div>`;
 }
 function canOpenView(next){
-  return ['explorar','publicacion','foro','about'].includes(next) || (['mi-cuenta','configuracion','personas','guardados','notificaciones','connections'].includes(next) && role!=='visitante') || (next==='moderacion' && ['lector','editor'].includes(role)) || (next==='denuncias'&&role==='editor');
+  return ['explorar','publicacion','foro','about','advertise'].includes(next) || (['mi-cuenta','configuracion','personas','guardados','notificaciones','connections','business','ad-admin'].includes(next) && role!=='visitante') || (next==='moderacion' && ['lector','editor'].includes(role)) || (next==='denuncias'&&role==='editor');
 }
 function updateNavigation(){
   document.querySelectorAll('.side-link[data-view]').forEach(button=>{
-    const visible=canOpenView(button.dataset.view);
+    const visible=canOpenView(button.dataset.view)&&(button.dataset.view!=='ad-admin'||!!ads?.isStaff());
     button.hidden=!visible;
     button.setAttribute('aria-hidden',String(!visible));
     if(!visible) button.classList.remove('active');
@@ -451,7 +452,7 @@ function setView(next){
   view=next; selectedId=null;
   if(next==='mi-cuenta')profileId=currentPersonId();
   document.querySelectorAll('.side-link[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===next));
-  if(['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias','foro','about','connections'].includes(next)) { render(); if(['guardados','notificaciones','denuncias'].includes(next))void refreshCommunity({quiet:true}); return; }
+  if(['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias','foro','about','connections','business','ad-admin','advertise'].includes(next)) { render(); if(['guardados','notificaciones','denuncias'].includes(next))void refreshCommunity({quiet:true}); return; }
   const headings={explorar:['PUBLICACIONES DE LA COMUNIDAD','El muro de Mazatlán'], moderacion:role==='lector'?['PANEL DE REVISIÓN','Reportes por revisar']:['PANEL EDITORIAL','Revisión pendiente']};
   $('.mini-eyebrow').textContent=headings[next][0];
   $('#feed-title').textContent=headings[next][1];
@@ -470,8 +471,9 @@ function render() {
   syncRoute();
   updateNavigation();
   document.querySelectorAll('.side-link[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
-  const alternate=['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias','foro','about','connections'].includes(view);
+  const alternate=['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias','foro','about','connections','business','ad-admin','advertise'].includes(view);
   $('#v13-panel').hidden=!['guardados','notificaciones','denuncias'].includes(view);
+  const commercial=['business','ad-admin','advertise'].includes(view);$('#ads-panel').hidden=!commercial;if(view!=='explorar'){$('#mobile-map-return').hidden=true;ads?.leave();}
   $('#sign-out span:last-child').textContent=guestMode?'Iniciar sesión':'Cerrar sesión';
   $('.page-heading').hidden = alternate;
   if(view!=='explorar')undockMap();
@@ -486,6 +488,7 @@ function render() {
   $('#profile-page').hidden=view!=='mi-cuenta';
   $('#post-page').hidden=view!=='publicacion';
   $('#people-page').hidden=view!=='personas';
+  if(commercial){void ads?.show(view);return;}
   if(view==='foro'){forum?.show();return;}
   if(view==='about'){renderAbout();return;}
   if(view==='connections'){if(pendingRoute?.username){$('#connections-panel').innerHTML='<p role="status">Cargando perfil…</p>';return;}renderConnections();return;}
@@ -508,6 +511,7 @@ function render() {
     $('#feed-content').innerHTML=list.length?list.map(card).join('')
       :empty('Aún no hay publicaciones','Cuando la comunidad comparta sus primeros reportes, aparecerán aquí. Si utilizas filtros, prueba a limpiarlos.','Limpiar filtros','reset-filters');
     if(!communityReady)$('#feed-content').insertAdjacentHTML('afterbegin',`<div class="community-notice" role="status"><strong>${communityError?'Conexión pendiente':'Conectando con la comunidad…'}</strong><p>${esc(communityError||'Cargando publicaciones de la comunidad.')}</p><button type="button" data-action="retry-community">Reintentar conexión</button></div>`);
+    ads?.wall();
     setMapItems(located,selectedId);
     scheduleMapCards();
   }else{
@@ -1056,7 +1060,7 @@ function onIdentityChange(state){
  $('#boot-status').hidden=true;
  const r=parseRoute(location.pathname,location.search);
  if(state.status==='signed_in'){
-   guestMode=false;currentIdentity=state;role=state.role;
+   guestMode=false;currentIdentity=state;role=state.role;void ads?.sync();
    if(old!==state.user.id||!wasChecked){forum?.reset();localProfile=loadLocalProfile(state.user.id);clearSocialSnapshot();communityReady=false;communityError='';items=[];rememberCurrentPerson();}
    $('#auth-configuration').hidden=true;
    if(!recoveryCompleted&&(state.recovery||recoveryAtBoot)){showAuth('recover',true);return;}
@@ -1067,7 +1071,7 @@ function onIdentityChange(state){
    return;
  }
  if(wasChecked&&!old&&guestMode&&state.status==='signed_out'){if(r.auth)showAuth(r.auth,true);else if(!$('#auth-gate').hidden)applyLocation();return;}
- forum?.reset();currentIdentity=null;role='visitante';guestMode=true;feedMode='explorar';
+ forum?.reset();currentIdentity=null;role='visitante';guestMode=true;feedMode='explorar';void ads?.sync();
  socialState={saved:[],notifications:[],flags:[],commentVotes:[]};clearSocialSnapshot();items=[];communityReady=false;communityError='';localProfile={username:'',bio:'',avatar:null,cover:null};
  closePublicProfile();closeDrawer();closePicker();closeLocationModal();closeExpandedMap();destroyEmbeddedMaps();
  applyLocation();$('#auth-configuration').hidden=state.status!=='unconfigured';
@@ -1120,6 +1124,8 @@ for(const form of document.querySelectorAll('#auth-gate .auth-form')) {
 }
 void loadBundledRegions().then(count=>{geoRegionsAvailable=count>0;setRegionData();if(currentIdentity)render();});
 installV20();
+ads=createAds({user:currentPersonId,view:()=>view,nav:updateNavigation,toast:showToast,compress:compressedPhoto,login:notSignedIn,navigate:next=>{if(next==='business'&&!currentPersonId()){returnAfterLogin='/mi-negocio';return showAuth('login');}setView(next);scrollTopPage();}});
+installMobileMap();
 installRouter();
 void initializeAuth(onIdentityChange);
 
@@ -1175,10 +1181,10 @@ function jumpToWall(item){
  if(item.coordinates)focusMapItem(item);
  requestAnimationFrame(()=>{const card=[...document.querySelectorAll('#feed-content [data-post-id]')].find(n=>n.dataset.postId===item.id);card?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});scheduleDock();});
 }
-function undockMap(){const home=$('#map-home'),panel=$('#map-panel');if(panel.parentNode!==home){animateMapMove(()=>{home.append(panel);home.style.minHeight='';$('#wall-companion').classList.remove('is-docked');$('#restore-map').hidden=true;},view==='explorar');}}
-function scheduleDock(){if(dockQueued)return;dockQueued=true;requestAnimationFrame(()=>{dockQueued=false;if(view!=='explorar'||mapIsExpanded||$('#map-panel').hidden)return;const home=$('#map-home'),panel=$('#map-panel'),header=$('.v20-top');const dock=home.getBoundingClientRect().bottom<header.getBoundingClientRect().bottom+90;if(dock&&panel.parentNode===home){animateMapMove(()=>{home.style.minHeight=home.getBoundingClientRect().height+'px';$('#map-dock').append(panel);$('#wall-companion').classList.add('is-docked');$('#restore-map').hidden=false;},true);}else if(!dock)undockMap();});}
+function undockMap(){const home=$('#map-home'),panel=$('#map-panel');if(panel.parentNode!==home){animateMapMove(()=>{home.append(panel);home.style.minHeight='';$('#wall-companion').classList.remove('is-docked');$('#restore-map').hidden=true;},view==='explorar'&&!matchMedia('(max-width:820px)').matches);}}
+function scheduleDock(){if(dockQueued)return;dockQueued=true;requestAnimationFrame(()=>{dockQueued=false;const mobile=matchMedia('(max-width:820px)').matches;if(mobile){undockMap();updateMobileMapButton();return;}$('#mobile-map-return').hidden=true;if(view!=='explorar'||mapIsExpanded||$('#map-panel').hidden)return;const home=$('#map-home'),panel=$('#map-panel'),header=$('.v20-top');const dock=home.getBoundingClientRect().bottom<header.getBoundingClientRect().bottom+90;if(dock&&panel.parentNode===home){animateMapMove(()=>{home.style.minHeight=home.getBoundingClientRect().height+'px';$('#map-dock').append(panel);$('#wall-companion').classList.add('is-docked');$('#restore-map').hidden=false;},true);}else if(!dock)undockMap();});}
 function renderAbout(){
- $('#about-panel').innerHTML='<article class="about-card"><div class="about-hero"><img src="./assets/isotipo.png" alt="MZT Conecta"><div><p>MAZATLÁN · SINALOA</p><h1>¿Quiénes somos?</h1><p>Una comunidad conectada con su ciudad.</p></div></div><div class="about-copy"><h2>MZT Conecta</h2><p>Somos un proyecto comunitario que busca acercar a las personas de Mazatlán a lo que sucede en su ciudad. Reunimos noticias, actividades, reportes de infraestructura y conversaciones en un solo lugar.</p><h2>Colaboraciones</h2><p>Queremos sumar esfuerzos con la comunidad, negocios locales y organizaciones para dar a conocer iniciativas y actividades que beneficien a Mazatlán.</p><button class="compose-button" type="button" data-about-home>Volver al muro</button></div></article>';
+ $('#about-panel').innerHTML='<article class="about-card"><div class="about-hero"><img src="./assets/isotipo.png" alt="MZT Conecta"><div><p>MAZATLÁN · SINALOA</p><h1>¿Quiénes somos?</h1><p>Una comunidad conectada con su ciudad.</p></div></div><div class="about-copy"><h2>MZT Conecta</h2><p>Somos un proyecto comunitario que busca acercar a las personas de Mazatlán a lo que sucede en su ciudad. Reunimos noticias, actividades, reportes de infraestructura y conversaciones en un solo lugar.</p><h2>Colaboraciones</h2><p>Queremos sumar esfuerzos con la comunidad, negocios locales y organizaciones para dar a conocer iniciativas y actividades que beneficien a Mazatlán.</p><p><a href="/publicidad" class="soft-btn" data-about-ads>Conocer espacios publicitarios</a></p><button class="compose-button" type="button" data-about-home>Volver al muro</button></div></article>';
 }
 function renderConnections(){
  const person=personFor(connectionsId);if(!person){$('#connections-panel').innerHTML='<p>No encontramos este perfil.</p><button data-connections-back type="button">Volver</button>';return;}
@@ -1191,7 +1197,7 @@ function installV20(){
  updateDaily=setupDaily($('#daily-bar'),jumpToWall);updateDaily([],dateISO());
  installSelects();
  $('.v20-top').addEventListener('click',e=>{const b=e.target.closest('[data-top-view]');if(!b)return;if(b.dataset.topView==='explorar')return goHome();setView(b.dataset.topView);scrollTopPage();});
- $('#about-panel').addEventListener('click',e=>{if(e.target.closest('[data-about-home]')){setView('explorar');scrollTopPage();}});
+ $('#about-panel').addEventListener('click',e=>{if(e.target.closest('[data-about-ads]')&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey){e.preventDefault();setView('advertise');scrollTopPage();return;}if(e.target.closest('[data-about-home]')){setView('explorar');scrollTopPage();}});
  $('#topic-filters').addEventListener('click',e=>{const b=e.target.closest('[data-topic]');if(!b)return;const set=topics[wallSection],t=b.dataset.topic;if(t==='Todos')set.clear();else if(set.has(t))set.delete(t);else set.add(t);selectedId=null;render();});
  $('#restore-map').addEventListener('click',()=>scrollTopPage());
  $('#toggle-wall-panels').addEventListener('click',e=>{const b=e.currentTarget;const opened=b.getAttribute('aria-expanded')==='true';b.setAttribute('aria-expanded',String(!opened));$('#wall-panels').classList.toggle('collapsed',opened);});
@@ -1226,7 +1232,7 @@ function pathForCurrent(){
 }
 function syncRoute(){if(routeLock||pendingRoute||!routeReady||!$('#auth-gate').hidden)return;const path=pathForCurrent();if(path)writeRoute(path);}
 function showAuth(kind,replace=false){
- pendingRoute=null;closeExpandedMap();$('#boot-status').hidden=true;$('.app-shell').hidden=true;$('#auth-gate').hidden=false;
+ pendingRoute=null;closeExpandedMap();$('#mobile-map-return').hidden=true;$('#boot-status').hidden=true;$('.app-shell').hidden=true;$('#auth-gate').hidden=false;
  setAuthView(kind);writeRoute(authPaths[kind]||authPaths.login,replace);
 }
 function resolveRouteContent(r){
@@ -1274,4 +1280,20 @@ function installRouter(){
   else {const v=el.dataset.view||el.dataset.topView;path=v==='explorar'?'/':v==='foro'?'/foro':viewPaths[v];}
   if(path){e.preventDefault();e.stopImmediatePropagation();window.open(path,'_blank','noopener');}
  },true);
+}
+
+function updateMobileMapButton(){
+ const button=$('#mobile-map-return'),map=$('#map-home');
+ if(!matchMedia('(max-width:820px)').matches||view!=='explorar'||mapIsExpanded||!$('#auth-gate').hidden||map.hidden){button.hidden=true;return;}
+ const header=$('.v20-top').getBoundingClientRect().bottom;
+ button.hidden=map.getBoundingClientRect().bottom>header;
+}
+function installMobileMap(){
+ $('#mobile-map-return').addEventListener('click',()=>{
+   if(view!=='explorar')return;
+   const map=$('#map-home'),header=$('.v20-top').getBoundingClientRect().bottom;
+   const behavior=matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth';
+   window.scrollTo({top:Math.max(0,window.scrollY+map.getBoundingClientRect().top-header-12),behavior});
+ });
+ matchMedia('(max-width:820px)').addEventListener('change',scheduleDock);
 }

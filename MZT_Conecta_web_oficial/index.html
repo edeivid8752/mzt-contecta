@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="./src/styles.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="./src/v20.css">
+  <link rel="stylesheet" href="./src/v22.css">
   <script type="module" src="./src/main.js"></script>
 </head>
 <body>
@@ -85,6 +86,7 @@
         <button type="button" class="side-link" data-view="personas"><span class="nav-ico">♧</span><span>Explorar perfiles</span></button>
         <button type="button" class="side-link" data-view="moderacion"><span class="nav-ico">◈</span><span>Moderación</span><span class="mod-count" id="mod-count" hidden>0</span></button>
         <button type="button" class="side-link" data-view="guardados"><span class="nav-ico">▣</span><span>Guardados</span></button><button type="button" class="side-link" data-view="notificaciones"><span class="nav-ico">●</span><span>Notificaciones</span><span id="notification-count"></span></button><button type="button" class="side-link" data-view="denuncias"><span class="nav-ico">⚑</span><span>Denuncias</span></button>
+        <button type="button" class="side-link" data-view="business" title="Mi negocio" aria-label="Mi negocio" hidden><span class="nav-ico">▤</span><span>Mi negocio</span></button><button type="button" class="side-link" data-view="ad-admin" title="Administración de publicidad" aria-label="Administración de publicidad" hidden><span class="nav-ico">▧</span><span>Publicidad</span></button>
         <button type="button" class="side-link account-link" data-view="mi-cuenta"><span class="nav-ico nav-account-avatar" id="sidebar-avatar">◎</span><span>Mi cuenta</span></button>
         <button type="button" class="side-link" data-view="configuracion"><span class="nav-ico">⚙</span><span>Configuración</span></button>
       </nav>
@@ -96,12 +98,12 @@
         <p>Infórmate, comparte y ayuda a tu comunidad.</p>
       </div>
       <button type="button" id="sign-out" class="side-link subtle sign-out-side"><span class="nav-ico">⇥</span><span>Cerrar sesión</span></button>
-      <div class="sidebar-bottom"><span class="mini-live"></span> COMUNIDAD DE MAZATLÁN <span>V 2.1</span></div>
+      <div class="sidebar-bottom"><span class="mini-live"></span> COMUNIDAD DE MAZATLÁN <span>V 2.2</span></div>
     </aside>
 
     <main class="main-area">
       <header class="v20-top"><button class="v20-brand" data-top-view="explorar" type="button">MZT Conecta</button><nav class="v20-tabs" aria-label="Navegación principal"><button type="button" data-top-view="explorar" aria-current="page">Muro</button><button type="button" data-top-view="foro">Foro</button><button type="button" data-top-view="about">¿Quiénes somos?</button></nav></header>
-      <div class="main-body"><section id="v13-panel" hidden></section>
+      <div class="main-body"><section id="v13-panel" hidden></section><section id="ads-panel" hidden></section>
       <div id="daily-bar" class="daily-bar"><strong class="daily-label">Al día</strong><div class="daily-headlines"><button id="daily-story" type="button"></button><span id="daily-controls"><button id="daily-prev" type="button" aria-label="Anterior">‹</button><button id="daily-pause" type="button" aria-label="Pausar">Ⅱ</button><button id="daily-next" type="button" aria-label="Siguiente">›</button></span></div><div class="weather" title="Clima en Mazatlán"><span id="weather-icon"></span><strong id="weather-reading">—</strong><span id="weather-condition">Mazatlán</span></div></div>
       <section id="forum-panel" class="v20-panel" hidden></section><section id="about-panel" class="v20-panel" hidden></section><section id="connections-panel" class="v20-panel" hidden></section>
         <div class="page-heading">
@@ -164,6 +166,7 @@
               <div id="trends-list" class="trends-list" aria-live="polite"></div>
               <p class="trends-note">Las publicaciones salen de Tendencias al cumplir 7 días. Usa Actualizar para consultar novedades.</p>
             </section>
+            <div id="ad-sidebar" hidden></div>
             <section class="stats-strip" id="stats-strip" aria-label="Resumen de actividad comunitaria">
               <div class="rail-section-head"><h3>Actividad del día</h3><span>EN EL MURO</span></div>
               <div class="stat"><span class="stat-icon green">◇</span><span><strong id="count-social">0</strong><small>Social del día</small></span></div><div class="stat"><span class="stat-icon cyan">◉</span><span><strong id="count-news">0</strong><small>Noticias del día</small></span></div>
@@ -241,6 +244,7 @@
       <footer><span id="expanded-map-count">Mostrando publicaciones con ubicación</span><button type="button" id="expanded-map-back">Volver al muro</button></footer>
     </section>
   </div>
+  <button type="button" id="mobile-map-return" hidden aria-label="Volver al mapa"><span aria-hidden="true">↑</span> Volver al mapa</button>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
