@@ -101,10 +101,27 @@ export function setRegionData(){
 export function setSelectedRegion(name){highlightedRegion=name||null;mainState?.regions?.setStyle(regionStyle);}
 function updateCenterControls(){
  const v=viewOf(mainState),initial=mainState?.initialView;if(!v||!initial)return;
- const centered=Math.abs(v.center[0]-initial.center[0])<.0001&&Math.abs(v.center[1]-initial.center[1])<.0001&&Math.abs(v.zoom-initial.zoom)<.001;
+ const map=mainState.instance;
+ // Leaflet redondea la proyección a píxeles después de mover o redimensionar el contenedor.
+ const centered=Math.abs(v.zoom-initial.zoom)<.001&&map.project(toLatLng(v.center),initial.zoom).distanceTo(map.project(toLatLng(initial.center),initial.zoom))<=1.5;
  for(const id of ['center-main-map','center-expanded-map']){const b=document.getElementById(id);if(b){b.hidden=centered;b.removeAttribute('aria-pressed');}}
 }
-export function resetMainMap(){if(mainState&&ready){requestedFocus=null;const v=mainState.initialView;mainState.instance.setView(toLatLng(v.center),v.zoom,{animate:!reduced()});updateCenterControls();}}
+export function resetMainMap(){
+ if(!mainState||!ready)return;
+ requestedFocus=null;const s=mainState,map=s.instance,v=s.initialView;
+ // Una animación de zoom anterior puede ignorar setView(animado). La dejamos terminar
+ // antes de iniciar el retorno y usamos flyTo, que se puede interrumpir con stop().
+ if(s.resetOnZoomEnd){map.off('zoomend',s.resetOnZoomEnd);s.resetOnZoomEnd=null;}
+ const reset=()=>{
+  if(mainState!==s||s.closed)return;
+  s.resetOnZoomEnd=null;map.stop();
+  if(reduced())map.setView(toLatLng(v.center),v.zoom,{animate:false});
+  else map.flyTo(toLatLng(v.center),v.zoom,{animate:true,duration:.35});
+  updateCenterControls();
+ };
+ if(map._animatingZoom){s.resetOnZoomEnd=()=>{queueMicrotask(reset);};map.once('zoomend',s.resetOnZoomEnd);}
+ else reset();
+}
 export function getMainMapView(){return viewOf(mainState);}
 export function focusMapItem(item){if(!validCoordinates(item?.coordinates))return;requestedFocus=item;if(mainState&&ready)mainState.instance.setView(toLatLng(item.coordinates),Math.max(mainState.instance.getZoom(),14),{animate:!reduced()});}
 export function resizeMap(){if(mainState){const s=mainState;s.hover?.clear();if(visible(s.el)){s.instance.invalidateSize({pan:true,animate:false,debounceMoveend:true});check(s);updateCenterControls();}}}

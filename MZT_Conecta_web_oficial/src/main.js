@@ -1,5 +1,5 @@
 import {CATEGORY_OPTIONS, PLACES, TYPE_INFO, dateISO, offsetDate, WALL_TOPICS, matchesWallTopic} from './data.js?v=2.4.2';
-import {initMap, setMapItems, focusMapItem, resizeMap, setRegionData, setSelectedRegion, refreshEmbeddedMaps, destroyEmbeddedMaps, createLocationPreview, destroyLocationPreview, createPickerMap, destroyPickerMap, resetMainMap} from './map.js?v=2.4.4';
+import {initMap, setMapItems, focusMapItem, resizeMap, setRegionData, setSelectedRegion, refreshEmbeddedMaps, destroyEmbeddedMaps, createLocationPreview, destroyLocationPreview, createPickerMap, destroyPickerMap, resetMainMap} from './map.js?v=2.4.4-r1';
 import {loadBundledRegions,setRegions,regionNames,pointInRegion,matchingRegion} from './regions.js';
 import {THEMES, themeSelection, activePalette, applyTheme, choosePreset, chooseCustom, restoreDefault} from './theme.js';
 import {initializeAuth, refreshIdentity, createAccount, loginAccount, logoutAccount, requestPasswordReset, changePassword, requestEmailVerification} from './auth.js';

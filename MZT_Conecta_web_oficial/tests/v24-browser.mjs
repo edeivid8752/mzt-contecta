@@ -167,15 +167,18 @@ try{
   document.querySelector('#center-main-map').onclick=window.mzt.resetMainMap;window.mzt.resizeMap();
  },markers);
  assert.equal(await page.locator('#map .leaflet-mzt-pin').count(),5);
- await page.evaluate(()=>window.mzt.focusMapItem({coordinates:[-106.42,23.22]}));
- await page.waitForFunction(()=>!document.querySelector('#center-main-map').hidden);
- await page.evaluate(()=>document.querySelector('#center-main-map').click());
- await page.waitForFunction(()=>document.querySelector('#center-main-map').hidden);
- await page.setViewportSize({width:1440,height:1000});
- await page.evaluate(()=>window.mzt.focusMapItem({coordinates:[-106.42,23.22]}));
- await page.waitForFunction(()=>!document.querySelector('#center-main-map').hidden);
- await page.evaluate(()=>document.querySelector('#center-main-map').click());
- await page.waitForFunction(()=>document.querySelector('#center-main-map').hidden);
+ async function checkCenter(width,height){
+  await page.setViewportSize({width,height});
+  await page.evaluate(()=>{window.scrollTo({top:0,behavior:'instant'});window.mzt.resizeMap();});
+  await page.waitForTimeout(350);
+  await page.evaluate(()=>window.mzt.focusMapItem({coordinates:[-106.42,23.22]}));
+  await page.waitForFunction(()=>{const v=window.mzt.getMainMapView();return v.zoom>=14&&!document.querySelector('#center-main-map').hidden;},null,{timeout:5000});
+  await page.locator('#center-main-map').click();
+  try{await page.waitForFunction(()=>{const v=window.mzt.getMainMapView();return document.querySelector('#center-main-map').hidden&&Math.abs(v.center[0]+106.429)<.0006&&Math.abs(v.center[1]-23.241)<.0006&&Math.abs(v.zoom-12)<.01;},null,{timeout:5000});}
+  catch(e){throw Error('Centrado '+width+'px: '+JSON.stringify(await page.evaluate(()=>({view:window.mzt.getMainMapView(),hidden:document.querySelector('#center-main-map').hidden})))+' '+e.message);}
+ }
+ await checkCenter(390,844);
+ await checkCenter(1440,1000);
  await page.setViewportSize({width:390,height:844});
  await page.evaluate(async()=>{
   const {installMobileMenu}=await import('/src/experience-v244.js');const side=document.querySelector('.sidebar');side.id='sidebar';
