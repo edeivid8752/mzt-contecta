@@ -18,7 +18,7 @@
 - Enlaces HTTP/HTTPS opcionales en publicaciones sociales y avisos ciudadanos.
 - Botón explícito «Publicar reporte» en móviles y fechas separadas de creación y última respuesta en el foro.
 
-La verificación diferida del correo queda pendiente de integración y validación; se conserva la protección de autenticación existente.
+- **Verificación de correo:** estado independiente de la confirmación automática de Auth, solicitud de enlace con CAPTCHA y comprobación de una nueva sesión autenticada mediante correo. La activación del registro sin confirmación inicial requiere comprobar el envío real del enlace y cambiar manualmente la opción Confirm email en Supabase después del despliegue.
 
 ### v2.3 — Participación y seguimiento ciudadano
 
@@ -130,7 +130,7 @@ La verificación diferida del correo queda pendiente de integración y validaci�
 
 ## Guía técnica de actualización
 
-- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`, `supabase/upgrade_v20.sql`, `supabase/upgrade_v21.sql`, `supabase/upgrade_v22.sql`, `supabase/upgrade_v23.sql`, `supabase/upgrade_v24.sql`. No ejecutar scripts antiguos de instalación sobre producción.
+- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`, `supabase/upgrade_v20.sql`, `supabase/upgrade_v21.sql`, `supabase/upgrade_v22.sql`, `supabase/upgrade_v23.sql`, `supabase/upgrade_v24.sql`, `supabase/upgrade_v24_email.sql`. No ejecutar scripts antiguos de instalación sobre producción.
 - La actualización v1.3.1 utiliza los metadatos de registro solo para el nombre visible y el identificador, nunca para asignar roles.
 - El índice único de perfiles evita duplicados incluso con registros simultáneos. La consulta de disponibilidad devuelve únicamente un booleano.
 - GitHub Actions verifica JavaScript y las migraciones de PostgreSQL en una base aislada.

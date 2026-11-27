@@ -65,3 +65,4 @@ jobs:
           psql -h localhost -U postgres -d mzt_test -v ON_ERROR_STOP=1 -f MZT_Conecta_web_oficial/tests/v23-isolated.sql
 
           psql -h localhost -U postgres -d mzt_test -v ON_ERROR_STOP=1 -f MZT_Conecta_web_oficial/tests/v24-isolated.sql
+          psql -h localhost -U postgres -d mzt_test -v ON_ERROR_STOP=1 -f MZT_Conecta_web_oficial/tests/v24-email-isolated.sql

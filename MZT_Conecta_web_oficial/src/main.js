@@ -2,7 +2,7 @@ import {CATEGORY_OPTIONS, PLACES, TYPE_INFO, dateISO, offsetDate, WALL_TOPICS, m
 import {initMap, setMapItems, focusMapItem, resizeMap, setRegionData, setSelectedRegion, refreshEmbeddedMaps, destroyEmbeddedMaps, createLocationPreview, destroyLocationPreview, createPickerMap, destroyPickerMap} from './map.js?v=2.4-r1';
 import {loadBundledRegions,setRegions,regionNames,pointInRegion,matchingRegion} from './regions.js';
 import {THEMES, themeSelection, activePalette, applyTheme, choosePreset, chooseCustom, restoreDefault} from './theme.js';
-import {initializeAuth, refreshIdentity, createAccount, loginAccount, logoutAccount, requestPasswordReset, changePassword} from './auth.js';
+import {initializeAuth, refreshIdentity, createAccount, loginAccount, logoutAccount, requestPasswordReset, changePassword, requestEmailVerification} from './auth.js';
 import {loadLocalProfile, normalizeUsername, validUsername} from './profile.js';
 import {editImage,closeCrop} from './crop.js';
 import {authorIdFor,personFor,syncPerson,followersOf,followingOf,isFollowing,commentsFor,countComments,localPersonIds,setSocialSnapshot,clearSocialSnapshot,voteCountFor} from './social.js';
@@ -290,6 +290,15 @@ function renderTrends(){
       <span class="trend-votes" aria-label="${voteCount(item)} votos"><span aria-hidden="true">▲</span>${voteCount(item)}</span>
     </button>`).join('') : '<p class="trends-empty">Todavía no hay publicaciones aprobadas de los últimos 7 días.</p>';
 }
+function emailVerificationMarkup(){
+  const verified=currentIdentity?.emailVerified;
+  if(verified===true)return '<strong>Correo electrónico verificado</strong><p>La dirección de correo de tu cuenta está confirmada.</p>';
+  if(verified===false)return '<strong>Correo electrónico pendiente de verificar</strong><p>Puedes usar tu cuenta y verificar el correo cuando quieras. Abre el enlace recibido en tu correo para confirmar que te pertenece.</p><button type="button" class="profile-public-link" data-action="verify-email">Verificar correo electrónico</button>';
+  return '<strong>Estado del correo no disponible</strong><p>Intenta comprobarlo nuevamente.</p><button type="button" class="profile-public-link" data-action="refresh-email-verification">Comprobar estado</button>';
+}
+function syncEmailVerification(){
+  const el=$('#v24-email-verification');if(el)el.innerHTML=emailVerificationMarkup();
+}
 function renderAccount() {
   const picked = themeSelection();
   const colors = activePalette();
@@ -334,6 +343,7 @@ function renderAccount() {
           <button class="profile-save" type="submit">Guardar cambios</button>
         </form>
         <button type="button" class="profile-public-link" data-action="show-public-profile">◎ Ver mi perfil social</button>
+        <div id="v24-email-verification" class="v24-email-verification" aria-live="polite">${emailVerificationMarkup()}</div>
         <button type="button" class="account-password-link" data-action="account-reset">Enviar enlace para cambiar contraseña</button>
         <div class="account-notice"><strong>Cuenta y comunidad conectadas</strong><p>Tu cuenta, perfil, imágenes, publicaciones, seguidores y comentarios se almacenan en Supabase y pueden ser vistos por otras personas registradas. Solo los colores del tema se guardan en este navegador. Los reportes requieren aprobación editorial.</p></div>
       </section>
@@ -830,6 +840,18 @@ $('#account-panel').addEventListener('click', e => {
       renderAccount();await removeImageServer(old).catch(()=>{});showToast('Imagen retirada de tu perfil público.');
     }catch(error){showToast(error.message||'No se pudo retirar la imagen.');}})();return;
   }
+  const verifyEmail=e.target.closest('[data-action="verify-email"]');
+  if(verifyEmail){
+    verifyEmail.disabled=true;
+    const uid=currentPersonId();
+    void requestEmailVerification().then(async already=>{
+      if(uid!==currentPersonId())return;
+      if(already){await refreshIdentity();showToast('Tu correo ya está verificado.');}
+      else showToast('Enviamos un enlace de verificación. Revisa tu bandeja de entrada y correo no deseado.');
+    }).catch(error=>showToast(error?.message||'No se pudo enviar el enlace. Inténtalo más tarde.')).finally(()=>{if(verifyEmail.isConnected)verifyEmail.disabled=false;});
+    return;
+  }
+  if(e.target.closest('[data-action="refresh-email-verification"]')){void refreshIdentity();return;}
   if (e.target.closest('[data-action="account-reset"]')) {
     if (!currentIdentity?.user?.email) return;
     void requestPasswordReset(currentIdentity.user.email)
@@ -1123,7 +1145,7 @@ function onIdentityChange(state){
    if(r.auth==='recover'&&!recoveryCompleted){showAuth('recover',true);return;}
    // Revalidar la misma sesión no equivale a navegar: conservar formularios y modales abiertos.
    if(keepCurrentViewOnIdentity({wasChecked,oldId:old,newId:state.user.id,previousRole,newRole:state.role,authRoute:r.auth,recovery:state.recovery,authHidden:$('#auth-gate').hidden,shellHidden:$('.app-shell').hidden})){
-     updateNavigation();updateComposerAvatar();if(!communityReady)void refreshCommunity({quiet:true});return;
+     updateNavigation();updateComposerAvatar();syncEmailVerification();if(!communityReady)void refreshCommunity({quiet:true});return;
    }
    if(r.auth){const target=returnAfterLogin||'/';returnAfterLogin=null;writeRoute(target,true);}
    applyLocation();

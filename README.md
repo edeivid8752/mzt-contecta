@@ -53,7 +53,7 @@ Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de m
 - Enlaces HTTP/HTTPS opcionales en publicaciones sociales y avisos ciudadanos.
 - Botón explícito «Publicar reporte» en móviles y fechas separadas de creación y última respuesta en el foro.
 
-La verificación diferida del correo queda pendiente de integración y validación; se conserva la protección de autenticación existente.
+- **Verificación de correo:** estado independiente de la confirmación automática de Auth, solicitud de enlace con CAPTCHA y comprobación de una nueva sesión autenticada mediante correo. La activación del registro sin confirmación inicial requiere comprobar el envío real del enlace y cambiar manualmente la opción Confirm email en Supabase después del despliegue.
 
 ### v2.3 — Participación y seguimiento ciudadano
 

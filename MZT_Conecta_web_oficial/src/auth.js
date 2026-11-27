@@ -59,7 +59,13 @@ export async function refreshIdentity(event = '') {
     }
     const role = roleResponse.data.role;
     if (!['ciudadano', 'lector', 'editor'].includes(role)) throw Error('El rol asignado no es válido.');
-    if (seq === generation) listener({status: 'signed_in', user, role, profile: profileResponse.data, recovery: event === 'PASSWORD_RECOVERY'});
+    // No confiar en email_confirmed_at: Supabase puede completarlo automáticamente.
+    let emailVerified=null;
+    try {
+      const result=await client.rpc('mzt_email_verification_status');
+      if(!result.error && typeof result.data==='boolean')emailVerified=result.data;
+    } catch {}
+    if (seq === generation) listener({status: 'signed_in', user, role, profile: profileResponse.data, emailVerified, recovery: event === 'PASSWORD_RECOVERY'});
   } catch (error) {
     if (seq === generation) listener({status: 'error', message: 'No fue posible verificar tu sesión o los permisos de tu cuenta. Revisa Supabase y las políticas de acceso.', cause: error.message});
   }
@@ -119,6 +125,16 @@ export async function logoutAccount() {
   const client = await requiredClient();
   const {error} = await client.auth.signOut();
   if (error) throw error;
+}
+export async function requestEmailVerification() {
+  const client=await requiredClient();
+  const captchaToken=await getCaptchaToken();
+  const {data:email,error:beginError}=await client.rpc('mzt_email_verification_begin');
+  if(beginError)throw beginError;
+  if(!email)return true;
+  const {error}=await client.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:location.origin+'/',captchaToken}});
+  if(error)throw error;
+  return false;
 }
 export async function requestPasswordReset(email) {
   const client = await requiredClient();
