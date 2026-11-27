@@ -44,6 +44,7 @@ jobs:
           node --experimental-default-type=module tests/v222.test.mjs
           node --experimental-default-type=module tests/v222-drafts.test.mjs
           node --experimental-default-type=module tests/v23.test.mjs
+          node --experimental-default-type=module tests/v24.test.mjs
           node --experimental-default-type=module tests/v23-turnstile.test.mjs
           node --experimental-default-type=module tests/v12.test.mjs
           node --experimental-default-type=module tests/v13.test.mjs
@@ -62,3 +63,5 @@ jobs:
           psql -h localhost -U postgres -d mzt_test -v ON_ERROR_STOP=1 -f MZT_Conecta_web_oficial/tests/v22-isolated.sql
 
           psql -h localhost -U postgres -d mzt_test -v ON_ERROR_STOP=1 -f MZT_Conecta_web_oficial/tests/v23-isolated.sql
+
+          psql -h localhost -U postgres -d mzt_test -v ON_ERROR_STOP=1 -f MZT_Conecta_web_oficial/tests/v24-isolated.sql

@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {validCoordinates,toLatLng,recoveryDelay} from '../src/map.js';
+assert.deepEqual(toLatLng([-106.43,23.24]),[23.24,-106.43]);
+assert(validCoordinates([-106.43,23.24]));
+for(const invalid of [null,[],[NaN,23],[-106,Infinity],[-181,23],[-106,91]])assert(!validCoordinates(invalid));
+assert.deepEqual([0,1,2,3,9].map(recoveryDelay),[15000,30000,60000,120000,120000]);
+const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8'),css=readFileSync(new URL('../src/v24.css',import.meta.url),'utf8'),map=readFileSync(new URL('../src/map.js',import.meta.url),'utf8'),forum=readFileSync(new URL('../src/forum-v20.js',import.meta.url),'utf8');
+assert(map.includes('iconAnchor:[18,42]'));assert(map.includes('setLatLng(toLatLng(item.coordinates))'));assert(map.includes('tiles.redraw()'));assert(map.includes('ResizeObserver'));assert(!map.includes('new lib.Map'));
+assert(main.includes('moderate-delete-comment'));assert(main.includes('reason_detail'));assert(main.includes("$('#report-place')||$('#news-place')"));assert(main.includes('external_url'));assert(css.includes('#composer-create::after{content:none}'));assert(!css.includes('grid-template-columns'));assert(forum.includes('last_reply_at'));console.log('Pruebas v2.4: coordenadas, recuperación, formularios, moderación, enlaces y foro correctas');

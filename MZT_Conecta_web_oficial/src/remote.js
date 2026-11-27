@@ -19,7 +19,7 @@ export async function loadCommunity(visitor=false){
   c.from('mzt_votes').select('post_id,user_id').limit(2000),
   c.from('mzt_saved').select('post_id').limit(1000),
   c.from('mzt_notifications').select('id,kind,post_id,created_at,read_at').order('created_at',{ascending:false}).limit(100),
-  c.from('mzt_flags').select('id,post_id,comment_id,reason,status,created_at').order('created_at',{ascending:false}).limit(200),
+  c.from('mzt_flags').select('id,post_id,comment_id,reason,reason_detail,status,created_at').order('created_at',{ascending:false}).limit(200),
   c.from('mzt_comment_votes').select('comment_id,user_id').limit(2000)
  ]);
  // Se consulta la publicación enlazada aunque no esté en la primera página.
@@ -61,7 +61,7 @@ function mapV13Post(p){
   coordinates:p.longitude==null||p.latitude==null?null:[p.longitude,p.latitude],day:localDate(p.created_at),
   clock:new Date(p.created_at).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false}),
   createdAt:p.created_at,review:p.review,reviewedAt:p.reviewed_at,approvedAt:p.approved_at,resolvedAt:p.resolved_at,
-  eventDay:p.event_day||null,rejectionReason:p.rejection_reason,image:p.photo_url,sourceName:p.source_name,sourceUrl:p.source_url,
+  eventDay:p.event_day||null,rejectionReason:p.rejection_reason,image:p.photo_url,sourceName:p.source_name,sourceUrl:p.source_url,externalUrl:p.external_url,
   visitorPost:!!p.visitor_post,alertZone:p.alert_zone||'',owner:'remote',ownerUserId:p.user_id}))(p);
 }
 function mapV13Comment(c){return {id:c.id,postId:c.post_id,authorId:c.user_id,text:c.body,createdAt:c.created_at,parentId:c.parent_id||null,editedAt:c.edited_at||null};}
@@ -70,9 +70,11 @@ export async function socialAction(kind,id,user,extra){
  switch(kind){
  case 'save':q=extra?c.from('mzt_saved').delete().eq('post_id',id).eq('user_id',user):c.from('mzt_saved').insert({post_id:id,user_id:user});break;
  case 'read':q=c.from('mzt_notifications').update({read_at:new Date().toISOString()}).eq('id',id);break;
- case 'flag-post':case 'flag-comment':q=c.from('mzt_flags').insert({user_id:user,[kind==='flag-post'?'post_id':'comment_id']:id,reason:extra});break;
+ case 'flag-post':case 'flag-comment':q=c.from('mzt_flags').insert({user_id:user,[kind==='flag-post'?'post_id':'comment_id']:id,reason:extra.reason,reason_detail:extra.reason_detail});break;
  case 'review-flag':q=c.from('mzt_flags').update({status:'reviewed'}).eq('id',id);break;
  case 'edit-post':q=c.from('mzt_posts').update(extra).eq('id',id).eq('user_id',user).select('id').single();break;
+ case 'moderate-delete-post':q=c.from('mzt_posts').delete().eq('id',id).select('id').single();break;
+ case 'moderate-delete-comment':q=c.from('mzt_comments').delete().eq('id',id).select('id').single();break;
  case 'delete-post':q=c.from('mzt_posts').delete().eq('id',id).eq('user_id',user).select('id').single();break;
  case 'edit-comment':q=c.from('mzt_comments').update({body:extra}).eq('id',id).eq('user_id',user).select('id').single();break;
  case 'vote-comment':q=extra?c.from('mzt_comment_votes').delete().eq('comment_id',id).eq('user_id',user):c.from('mzt_comment_votes').insert({comment_id:id,user_id:user});break;

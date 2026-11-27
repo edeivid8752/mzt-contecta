@@ -1,8 +1,24 @@
-# MZT Conecta — v2.3
+# MZT Conecta — v2.4
 
 **[mztconecta.com](https://mztconecta.com)** · Porque lo que pasa en Mazatlán nos une.
 
 ## Historial de actualizaciones
+
+### v2.4 — Estabilidad de mapas y experiencia comunitaria
+
+**Mapas**
+- Motor raster común para mapa principal, ampliado, selector y publicaciones: marcadores anclados a coordenadas con tamaño estable, incluyendo infraestructura.
+- Gestión de instancias visibles y recuperación de teselas en blanco sin recargar el muro; control de reintento y conservación de la vista.
+- Ubicación exacta opcional en noticias editoriales.
+- Ampliación de la columna del mapa, tendencias y actividad sin modificar la cuadrícula de publicaciones.
+
+**Moderación y comunidad**
+- Eliminación editorial de publicaciones y comentarios desde denuncias, con confirmación.
+- Explicación obligatoria para nuevas denuncias de motivo «Otro».
+- Enlaces HTTP/HTTPS opcionales en publicaciones sociales y avisos ciudadanos.
+- Botón explícito «Publicar reporte» en móviles y fechas separadas de creación y última respuesta en el foro.
+
+La verificación diferida del correo queda pendiente de integración y validación; se conserva la protección de autenticación existente.
 
 ### v2.3 — Participación y seguimiento ciudadano
 
@@ -114,7 +130,7 @@
 
 ## Guía técnica de actualización
 
-- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`, `supabase/upgrade_v20.sql`, `supabase/upgrade_v21.sql`, `supabase/upgrade_v22.sql`, `supabase/upgrade_v23.sql`. No ejecutar scripts antiguos de instalación sobre producción.
+- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`, `supabase/upgrade_v20.sql`, `supabase/upgrade_v21.sql`, `supabase/upgrade_v22.sql`, `supabase/upgrade_v23.sql`, `supabase/upgrade_v24.sql`. No ejecutar scripts antiguos de instalación sobre producción.
 - La actualización v1.3.1 utiliza los metadatos de registro solo para el nombre visible y el identificador, nunca para asignar roles.
 - El índice único de perfiles evita duplicados incluso con registros simultáneos. La consulta de disponibilidad devuelve únicamente un booleano.
 - GitHub Actions verifica JavaScript y las migraciones de PostgreSQL en una base aislada.

@@ -1,23 +1,18 @@
-// Mapa real MapLibre + teselas OpenStreetMap. Requiere Internet; no hay descargas masivas.
-// Para producción deberá contratarse un proveedor apropiado y configurarse la variable TILES_URL.
+// v2.4: motor raster DOM compartido, sin contextos WebGL por publicación.
 import {getRegions} from './regions.js';
-const TILES_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const DEFAULT_CENTER = [-106.429, 23.241];
-let lib = null;
-let map = null;
-let markers = [];
-let lastItems = [];
-let onItemClick = null;
-let onRegionClick = null;
-let highlightedRegion = null;
-let regionLabels=[];
-let selected = null;
-let ready = false;
-let alternateMap=null,requestedFocus=null;
-
-const markerFor = item => {
+const TILES_URL='https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const DEFAULT_CENTER=[-106.429,23.241];
+let libPromise,mainState=null,initJob=null,lastItems=[],selected=null,onItemClick,onRegionClick,highlightedRegion=null,requestedFocus=null,ready=false;
+let lifecycleInstalled=false,previewState=null,pickerState=null,pickerMarker=null,previewRequest=0,pickerRequest=0;
+const live=new Set(),embeddedMaps=new Map(),embeddedViews=new WeakMap();
+let embeddedObserver=null,embeddedGeneration=0;
+export const validCoordinates=c=>Array.isArray(c)&&c.length===2&&c.every(Number.isFinite)&&Math.abs(c[0])<=180&&Math.abs(c[1])<=85.051129;
+export const toLatLng=c=>[c[1],c[0]];
+const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+const loadLibrary=()=>libPromise||(libPromise=import('https://unpkg.com/leaflet@1.9.4/dist/leaflet-src.esm.js').then(m=>m.default||m).catch(e=>{libPromise=null;throw e;}));
+const markerFor = (item,interactive=true) => {
  const wrap=document.createElement('div');wrap.className='wall-pin-wrap';
- const el=document.createElement('button');el.type='button';
+ const el=document.createElement(interactive?'button':'span');if(interactive)el.type='button';
  const type=['news','citizen','social','infrastructure'].includes(item.type)?item.type:'citizen';
  el.className='wall-pin wall-pin-'+type+(item.resolvedAt?' resolved':'')+(selected===item.id?' selected':'');
  el.setAttribute('aria-label',item.title);
@@ -27,253 +22,117 @@ const markerFor = item => {
  else if(type==='infrastructure')glyph=/agua|drenaje|inundacion/.test(c)?'<path d="M12 4s-6 7-6 11a6 6 0 0 0 12 0c0-4-6-11-6-11z"/>':/alumbrado/.test(c)?'<path d="M9 17h6m-5 3h4M8 14a6 6 0 1 1 8 0l-1 3H9z"/>':'<path d="M5 18 12 5l7 13zM12 10v4m0 2v.5"/>';
  else if(type==='citizen')glyph='<path d="M12 5 3 19h18zM12 10v4m0 2v.5"/>';
  el.innerHTML='<svg viewBox="0 0 36 44" width="36" height="44" aria-hidden="true"><path class="wall-pin-shape" d="M18 2C8 2 2 9 2 18c0 10 16 24 16 24s16-14 16-24C34 9 28 2 18 2Z"/><g transform="translate(6 6)" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+glyph+'</g></svg>';
- el.addEventListener('click',e=>{e.stopPropagation();onItemClick?.(item.id);});wrap.append(el);return wrap;
+ if(interactive)el.addEventListener('click',e=>{e.stopPropagation();onItemClick?.(item.id);});wrap.append(el);return wrap;
 };
-export async function initMap({onSelect, onRegionSelect, onFail}) {
-  onItemClick = onSelect;
-  onRegionClick = onRegionSelect;
-  try {
-    lib = await import('https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.mjs');
-    map = new lib.Map({
-      container:'map', center:DEFAULT_CENTER, zoom:12.05, minZoom:10, maxZoom:18,
-      attributionControl:false,
-      style:{
-        version:8,
-        sources:{osm:{type:'raster',tiles:[TILES_URL],tileSize:256,
-          attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>'}},
-        layers:[{id:'base',type:'raster',source:'osm'}]
-      }
-    });
-    map.addControl(new lib.AttributionControl({compact:true}), 'bottom-left');
-    map.on('load',()=> { ready=true; mountRegionLayers(); setMapItems(lastItems,selected);if(requestedFocus)focusMapItem(requestedFocus); });
-    map.on('error',e=>{ console.warn('Mapa:',e?.error?.message||'Error de teselas'); });
-    return true;
-  } catch(err) {
-    console.error('MapLibre no disponible:', err);
-    try {map?.remove();map=null;const module=await import('https://unpkg.com/leaflet@1.9.4/dist/leaflet-src.esm.js');const L=module.default||module;const el=document.getElementById('map');el.replaceChildren();el.classList.remove('maplibregl-map');const instance=L.map(el,{zoomControl:false,minZoom:10,maxZoom:18}).setView([...DEFAULT_CENTER].reverse(),12);L.tileLayer(TILES_URL,{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(instance);alternateMap={instance,L,pins:L.layerGroup().addTo(instance),regions:null};ready=true;setRegionData();setMapItems(lastItems,selected);if(requestedFocus)focusMapItem(requestedFocus);return true;}catch(fallbackError){console.warn('Mapa alternativo:',fallbackError);onFail?.();return false;}
-  }
-}
 
-export function setMapItems(items, selectedId) {
-  lastItems=items;
-  selected=selectedId;
-  if(alternateMap){const {L,instance,pins}=alternateMap;pins.clearLayers();for(const item of items){if(!Array.isArray(item.coordinates)||item.coordinates.length!==2)continue;const icon=L.divIcon({className:'leaflet-mzt-pin',html:markerFor(item),iconSize:[36,44],iconAnchor:[18,44]});L.marker([...item.coordinates].reverse(),{icon}).addTo(pins);}return;}
-  if (!map||!lib||!ready) return;
-  for(const mk of markers) mk.remove();
-  markers=[];
-  for (const item of items) {
-    if (!Array.isArray(item.coordinates) || item.coordinates.length !== 2) continue;
-    const mk = new lib.Marker({element:markerFor(item),anchor:'bottom'})
-      .setLngLat(item.coordinates).addTo(map);
-    markers.push(mk);
-  }
+function icon(L,item,interactive=true){return L.divIcon({className:'leaflet-mzt-pin',html:markerFor(item,interactive),iconSize:[36,44],iconAnchor:[18,42]});}
+function viewOf(state){if(!state)return null;const p=state.instance.getCenter();return {center:[p.lng,p.lat],zoom:state.instance.getZoom()};}
+function visible(el){return el.isConnected&&el.getClientRects().length>0&&el.clientWidth>0&&el.clientHeight>0&&!document.hidden;}
+function visibleTile(state){
+ const host=state.el.getBoundingClientRect(),layer=state.tiles.getContainer();
+ return !!layer&&Array.from(layer.querySelectorAll('img.leaflet-tile-loaded')).some(img=>{
+  if(!img.complete||!img.naturalWidth)return false;
+  const r=img.getBoundingClientRect();return r.right>host.left&&r.left<host.right&&r.bottom>host.top&&r.top<host.bottom;
+ });
 }
-// Contornos verificables (GeoJSON). Sin datos, no se dibujan límites aproximados.
-function regionColor(){return getComputedStyle(document.documentElement).getPropertyValue('--skin-primary').trim()||'#75458b';}
-function mountRegionLayers(){
-  if(!map||!ready)return;
-  if(!map.getSource('mzt-regions')) map.addSource('mzt-regions',{type:'geojson',data:getRegions()});
-  const color=regionColor();
-  if(!map.getLayer('mzt-region-fill')) map.addLayer({id:'mzt-region-fill',type:'fill',source:'mzt-regions',maxzoom:15,
-    paint:{'fill-color':color,'fill-opacity':['case',['==',['get','name'],highlightedRegion||''],0.24,0.07]}});
-  if(!map.getLayer('mzt-region-outline'))map.addLayer({id:'mzt-region-outline',type:'line',source:'mzt-regions',maxzoom:15,
-    paint:{'line-color':color,'line-width':['interpolate',['linear'],['zoom'],10,1.8,14,1],
-      'line-opacity':['interpolate',['linear'],['zoom'],10,0.9,14,0.3]}});
-  updateRegionLabels();
-  map.on('zoomend',updateRegionLabels);
-  map.on('moveend',updateRegionLabels);
-  map.on('click','mzt-region-fill',e=>{
-    const name=e.features?.[0]?.properties?.name;
-    if(name)onRegionClick?.(name);
-  });
-  map.on('mouseenter','mzt-region-fill',()=>{map.getCanvas().style.cursor='pointer';});
-  map.on('mouseleave','mzt-region-fill',()=>{map.getCanvas().style.cursor='';});
+export function recoveryDelay(retries){return Math.min(120000,15000*Math.pow(2,Math.min(retries,3)));}
+function check(state,manual=false){
+ if(state.closed||!visible(state.el))return;
+ const now=Date.now(),w=state.el.clientWidth,h=state.el.clientHeight;
+ if(w!==state.w||h!==state.h){state.w=w;state.h=h;state.instance.invalidateSize({pan:true,animate:false,debounceMoveend:true});}
+ if(visibleTile(state)){state.blankSince=0;state.retries=0;state.retryButton.hidden=true;return;}
+ if(!state.blankSince)state.blankSince=now;
+ if(now-state.blankSince>=15000)state.retryButton.hidden=false;
+ if(navigator.onLine===false)return;
+ if(manual||(now-state.blankSince>=15000&&now-state.lastRetry>=recoveryDelay(state.retries))){
+  state.lastRetry=now;state.retries++;state.tiles.redraw();
+ }
 }
+function installLifecycle(){
+ if(lifecycleInstalled)return;lifecycleInstalled=true;
+ const wake=()=>{if(!document.hidden)for(const s of live)check(s);};
+ document.addEventListener('visibilitychange',wake);
+ window.addEventListener('pageshow',wake);
+ window.addEventListener('online',wake);
+ setInterval(wake,5000);
+}
+function makeMap(L,el,center,zoom,{controls=false,maxZoom=19}={}){
+ const instance=L.map(el,{zoomControl:controls,attributionControl:false,minZoom:10,maxZoom,zoomSnap:.25,zoomDelta:.5,scrollWheelZoom:true,zoomAnimation:!reduced(),fadeAnimation:!reduced(),markerZoomAnimation:!reduced()}).setView(toLatLng(center),zoom);
+ try{
+ L.control.attribution({position:'bottomleft',prefix:false}).addTo(instance);
+ const tiles=L.tileLayer(TILES_URL,{attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>',maxNativeZoom:19,maxZoom,keepBuffer:2,updateWhenIdle:true,updateWhenZooming:false}).addTo(instance);
+ const retryButton=document.createElement('button');retryButton.type='button';retryButton.className='v24-map-retry';retryButton.textContent='Reintentar mapa';retryButton.hidden=true;el.append(retryButton);
+ const state={L,el,instance,tiles,retryButton,w:el.clientWidth,h:el.clientHeight,blankSince:Date.now(),lastRetry:Date.now(),retries:0,closed:false,observer:null,pins:new Map(),regions:null};
+ L.DomEvent.disableClickPropagation(retryButton);L.DomEvent.disableScrollPropagation(retryButton);
+ retryButton.addEventListener('click',()=>{state.retries=0;check(state,true);});
+ const validate=()=>check(state);tiles.on('tileload tileerror',validate);instance.on('moveend zoomend',validate);
+ if('ResizeObserver' in window){state.observer=new ResizeObserver(()=>{if(!state.closed)requestAnimationFrame(validate);});state.observer.observe(el);}
+ live.add(state);installLifecycle();return state;
+ }catch(error){instance.remove();throw error;}
+}
+function dispose(state){if(!state||state.closed)return;state.closed=true;live.delete(state);state.observer?.disconnect();state.retryButton.remove();state.instance.remove();}
+function addPin(state,item,interactive=true){return state.L.marker(toLatLng(item.coordinates),{icon:icon(state.L,item,interactive),keyboard:interactive,interactive}).addTo(state.instance);}
+function pinSignature(item){return JSON.stringify([item.coordinates,item.type,item.category,item.title,!!item.resolvedAt,selected===item.id]);}
+export async function initMap({onSelect,onRegionSelect,onFail}){
+ onItemClick=onSelect;onRegionClick=onRegionSelect;
+ if(mainState){resizeMap();return true;}if(initJob)return initJob;
+ initJob=(async()=>{try{const L=await loadLibrary(),el=document.getElementById('map');mainState=makeMap(L,el,DEFAULT_CENTER,12.05,{maxZoom:18});ready=true;setRegionData();setMapItems(lastItems,selected);if(requestedFocus)focusMapItem(requestedFocus);return true;}catch(error){console.warn('Mapa:',error);dispose(mainState);mainState=null;ready=false;onFail?.();return false;}finally{initJob=null;}})();
+ return initJob;
+}
+export function setMapItems(items,selectedId){
+ lastItems=items;selected=selectedId;if(!mainState||!ready)return;
+ const state=mainState,keep=new Set();
+ for(const item of items){if(!validCoordinates(item.coordinates))continue;keep.add(item.id);const sig=pinSignature(item),existing=state.pins.get(item.id);
+  if(existing?.sig===sig)continue;
+  if(existing){existing.marker.setLatLng(toLatLng(item.coordinates));existing.marker.setIcon(icon(state.L,item));existing.sig=sig;}
+  else state.pins.set(item.id,{marker:addPin(state,item),sig});
+ }
+ for(const [id,entry] of state.pins)if(!keep.has(id)){entry.marker.remove();state.pins.delete(id);}
+}
+const regionColor=()=>getComputedStyle(document.documentElement).getPropertyValue('--skin-primary').trim()||'#75458b';
+const regionStyle=f=>({color:regionColor(),weight:1,fillOpacity:f.properties.name===highlightedRegion ? .24 : .07});
 export function setRegionData(){
-  if(alternateMap){const a=alternateMap;if(a.regions)a.regions.remove();a.regions=a.L.geoJSON(getRegions(),{style:f=>({color:regionColor(),weight:1,fillOpacity:f.properties.name===highlightedRegion?.24:.07}),onEachFeature:(f,l)=>l.on('click',()=>onRegionClick?.(f.properties.name))}).addTo(a.instance);a.regions.bringToBack();return;}
-  if(!map||!ready)return;
-  const src=map.getSource('mzt-regions');
-  if(src)src.setData(getRegions());else mountRegionLayers();
-  updateRegionLabels();
+ if(!mainState||!ready)return;const s=mainState;
+ s.regions?.remove();s.regions=s.L.geoJSON(getRegions(),{style:regionStyle,onEachFeature:(f,l)=>l.on('click',()=>onRegionClick?.(f.properties.name))}).addTo(s.instance);s.regions.bringToBack();
 }
-export function setSelectedRegion(name){
-  highlightedRegion=name||null;
-  if(alternateMap){setRegionData();return;}
-  if(!map||!ready)return;
-  const color=regionColor();
-  for(const id of ['mzt-region-fill','mzt-region-outline']){
-    if(map.getLayer(id))map.setPaintProperty(id,id==='mzt-region-fill'?'fill-color':'line-color',color);
-  }
-  if(map.getLayer('mzt-region-fill'))map.setPaintProperty('mzt-region-fill','fill-opacity',
-    ['case',['==',['get','name'],highlightedRegion||''],0.24,0.07]);
-  updateRegionLabels();
+export function setSelectedRegion(name){highlightedRegion=name||null;mainState?.regions?.setStyle(regionStyle);}
+export function getMainMapView(){return viewOf(mainState);}
+export function focusMapItem(item){if(!validCoordinates(item?.coordinates))return;requestedFocus=item;if(mainState&&ready)mainState.instance.setView(toLatLng(item.coordinates),Math.max(mainState.instance.getZoom(),14),{animate:!reduced()});}
+export function resizeMap(){if(mainState){const s=mainState;if(visible(s.el)){s.instance.invalidateSize({pan:true,animate:false,debounceMoveend:true});check(s);}}}
+export function isMapReady(){return !!mainState&&ready;}
+function embeddedItem(el){return {id:'embedded',coordinates:(el.dataset.coords||'').split(',').map(Number),title:el.dataset.title||'Ubicación de la publicación',type:el.dataset.type||'citizen',category:el.dataset.category||'',resolvedAt:el.dataset.resolved==='true'?true:null};}
+async function activateEmbeddedMap(el,generation){
+ if(embeddedMaps.has(el)||!visible(el))return;
+ const item=embeddedItem(el);if(!validCoordinates(item.coordinates))return;
+ try{const L=await loadLibrary();if(generation!==embeddedGeneration||embeddedMaps.has(el)||!visible(el))return;const saved=embeddedViews.get(el);el.classList.remove('embedded-map-failed');el.replaceChildren();const s=makeMap(L,el,saved?.center||item.coordinates,saved?.zoom||15.75,{controls:true});embeddedMaps.set(el,s);addPin(s,item,false);}
+ catch(error){console.warn('Mapa de publicación:',error);if(el.isConnected){el.classList.add('embedded-map-failed');el.textContent='No se pudo cargar el mapa. Vuelve a abrir la publicación.';}}
 }
-function regionMidpoint(geometry){
-  const poly=geometry?.type==='Polygon'?geometry.coordinates:geometry?.coordinates?.[0];
-  const ring=poly?.[0];if(!ring?.length)return null;
-  let minLon=Infinity,maxLon=-Infinity,minLat=Infinity,maxLat=-Infinity;
-  for(const coord of ring){minLon=Math.min(minLon,coord[0]);maxLon=Math.max(maxLon,coord[0]);minLat=Math.min(minLat,coord[1]);maxLat=Math.max(maxLat,coord[1]);}
-  return [(minLon+maxLon)/2,(minLat+maxLat)/2];
-}
-function updateRegionLabels(){
-  for(const label of regionLabels)label.remove();regionLabels=[];
-  if(!map||!ready||!lib||map.getZoom()>13.4)return;
-  const features=getRegions().features;
-  const zoneFeatures=features.filter(f=>f.properties.scope==='zona');
-  const candidates=map.getZoom()<12 && zoneFeatures.length?zoneFeatures:features;
-  const visibleBounds=map.getBounds?.();
-  let shown=0;
-  for(const feature of candidates){
-    if(shown>=70)break;
-    const coords=regionMidpoint(feature.geometry);if(!coords)continue;
-    if(visibleBounds&&!visibleBounds.contains(coords))continue;
-    const el=document.createElement('span');el.className='region-label';
-    el.textContent=feature.properties.name;
-    if(feature.properties.name===highlightedRegion)el.classList.add('selected');
-    el.addEventListener('click',e=>{e.stopPropagation();onRegionClick?.(feature.properties.name);});
-    regionLabels.push(new lib.Marker({element:el,anchor:'center'}).setLngLat(coords).addTo(map));
-    shown++;
-  }
-}
-export function getMainMapView(){if(alternateMap){const p=alternateMap.instance.getCenter();return {center:[p.lng,p.lat],zoom:alternateMap.instance.getZoom()};}return map?{center:[map.getCenter().lng,map.getCenter().lat],zoom:map.getZoom()}:null;}
-// Los mapas pequeños son independientes del mapa general y tienen un único marcador.
-const embeddedMaps=new Map();
-let embeddedObserver=null;
-const embeddedStyle=()=>({version:8,sources:{osm:{type:'raster',tiles:[TILES_URL],tileSize:256,
-    attribution:'© OpenStreetMap contributors'}},layers:[{id:'base',type:'raster',source:'osm'}]});
-async function activateEmbeddedMap(el){
-  if(embeddedMaps.has(el)||!el.isConnected)return;
-  const coords=(el.dataset.coords||'').split(',').map(Number);
-  if(coords.length!==2||!coords.every(Number.isFinite))return;
-  try{
-    if(!lib)lib=await import('https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.mjs');
-    if(!el.isConnected||!el.getBoundingClientRect().height||embeddedMaps.has(el))return;
-    const instance=new lib.Map({container:el,center:coords,zoom:15.8,minZoom:10,maxZoom:19,
-      attributionControl:false,style:embeddedStyle()});
-    embeddedMaps.set(el,instance);
-    instance.addControl(new lib.NavigationControl({showCompass:false}),'top-right');
-    instance.addControl(new lib.AttributionControl({compact:true}),'bottom-left');
-    const marker=document.createElement('span');marker.className='location-preview-anchor';
-    marker.innerHTML='<span class="location-preview-pin"></span>';
-    new lib.Marker({element:marker,anchor:'bottom'}).setLngLat(coords).addTo(instance);
-    instance.on('load',()=>{if(el.isConnected)instance.resize();});
-  }catch(error){console.warn('Mapa integrado:',error);el.classList.add('embedded-map-failed');el.textContent='El mapa no está disponible sin conexión a Internet.';}
-}
+function removeEmbedded(el,s){if(!s)return;if(el.isConnected)embeddedViews.set(el,viewOf(s));dispose(s);embeddedMaps.delete(el);}
 export function refreshEmbeddedMaps(){
-  if(embeddedObserver)embeddedObserver.disconnect();
-  for(const [el,instance] of embeddedMaps){if(!el.isConnected || !el.getBoundingClientRect().height){instance.remove();embeddedMaps.delete(el);}}
-  if(!('IntersectionObserver' in window)){
-    document.querySelectorAll('.post-embedded-map').forEach(el=>void activateEmbeddedMap(el));return;
-  }
-  embeddedObserver=new IntersectionObserver(entries=>{
-    for(const entry of entries){
-      if(entry.isIntersecting)void activateEmbeddedMap(entry.target);
-      else if(embeddedMaps.has(entry.target)){
-        embeddedMaps.get(entry.target).remove();embeddedMaps.delete(entry.target);
-      }
-    }
-  },{rootMargin:'100px 0px 100px 0px'});
-  document.querySelectorAll('.post-embedded-map').forEach(el=>embeddedObserver.observe(el));
+ embeddedObserver?.disconnect();const generation=++embeddedGeneration;
+ for(const [el,s] of embeddedMaps)if(!el.isConnected||!el.clientHeight)removeEmbedded(el,s);
+ const nodes=document.querySelectorAll('.post-embedded-map');
+ if(!('IntersectionObserver' in window)){nodes.forEach(el=>void activateEmbeddedMap(el,generation));return;}
+ embeddedObserver=new IntersectionObserver(entries=>{if(generation!==embeddedGeneration)return;for(const e of entries){if(e.isIntersecting)void activateEmbeddedMap(e.target,generation);else removeEmbedded(e.target,embeddedMaps.get(e.target));}},{rootMargin:'100px 0px 100px 0px'});
+ nodes.forEach(el=>embeddedObserver.observe(el));
 }
-export function destroyEmbeddedMaps(){
-  embeddedObserver?.disconnect(); embeddedObserver=null;
-  for(const instance of embeddedMaps.values())instance.remove();embeddedMaps.clear();
+export function destroyEmbeddedMaps(){embeddedGeneration++;embeddedObserver?.disconnect();embeddedObserver=null;for(const [el,s] of embeddedMaps)removeEmbedded(el,s);}
+export function destroyLocationPreview(){previewRequest++;dispose(previewState);previewState=null;}
+export async function createLocationPreview(item,{onLoad,onFail}={}){
+ destroyLocationPreview();const request=previewRequest;if(!validCoordinates(item?.coordinates)){onFail?.();return false;}
+ try{const L=await loadLibrary();if(request!==previewRequest||document.getElementById('location-overlay').hidden)return false;
+ previewState=makeMap(L,document.getElementById('location-mini-map'),item.coordinates,16.25,{controls:true});addPin(previewState,item,false);onLoad?.();return true;}
+ catch(error){if(request===previewRequest){destroyLocationPreview();onFail?.();}return false;}
 }
-
-export function focusMapItem(item) {
-  if(!item?.coordinates)return;requestedFocus=item;if(alternateMap){const a=alternateMap.instance;a.setView([...item.coordinates].reverse(),Math.max(a.getZoom(),14),{animate:!matchMedia('(prefers-reduced-motion: reduce)').matches});return;}if(!map||!lib||!ready)return;
-  map.easeTo({center:item.coordinates,zoom:Math.max(map.getZoom(),14),duration:matchMedia('(prefers-reduced-motion: reduce)').matches?0:650});
-}
-export function resizeMap() { if(map) map.resize();if(alternateMap)alternateMap.instance.invalidateSize({pan:false}); }
-export function isMapReady() { return !!(map||alternateMap)&&ready; }
-
-
-// Mapa independiente dentro de la ventana emergente de una publicación.
-// No cambia el mapa principal ni provoca desplazamiento de la página.
-let previewMap = null;
-let previewRequest=0;
-export function destroyLocationPreview(){
-  previewRequest++;
-  if (previewMap) { previewMap.remove(); previewMap=null; }
-}
-export async function createLocationPreview(item, {onLoad, onFail}={}) {
-  destroyLocationPreview();
-  const request=previewRequest;
-  const coordinates = item?.coordinates;
-  if (!Array.isArray(coordinates) || coordinates.length!==2) { onFail?.(); return false; }
-  try {
-    if (!lib) lib=await import('https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.mjs');
-    if(request!==previewRequest || document.getElementById('location-overlay').hidden) return false;
-    // El overlay ya debe estar visible antes de inicializar MapLibre.
-    previewMap=new lib.Map({
-      container:'location-mini-map', center:coordinates, zoom:16.3, minZoom:10, maxZoom:19,
-      attributionControl:false,
-      style:{version:8,
-        sources:{osm:{type:'raster',tiles:[TILES_URL],tileSize:256,
-          attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>'}},
-        layers:[{id:'base',type:'raster',source:'osm'}]
-      }
-    });
-    previewMap.addControl(new lib.NavigationControl({showCompass:false}),'top-right');
-    previewMap.addControl(new lib.AttributionControl({compact:true}),'bottom-left');
-    const marker=document.createElement('div');
-    marker.className='location-preview-anchor';
-    marker.setAttribute('aria-label','Punto indicado en la publicación');
-    const pin=document.createElement('span'); pin.className='location-preview-pin'; marker.append(pin);
-    new lib.Marker({element:marker,anchor:'bottom'}).setLngLat(coordinates).addTo(previewMap);
-    previewMap.on('load',()=>{if(request!==previewRequest)return;previewMap?.resize(); onLoad?.();});
-    previewMap.on('error',e=>console.warn('Mapa de ubicación:',e?.error?.message||'Error de teselas'));
-    return true;
-  } catch(err) {
-    console.warn('Vista rápida del mapa no disponible:',err);
-    destroyLocationPreview(); onFail?.(); return false;
-  }
-}
-
-
-// Mapa de selección para el formulario: completamente independiente del mapa superior.
-let pickerMap=null;
-let pickerMarker=null;
-let pickerRequest=0;
-export function destroyPickerMap(){
-  pickerRequest++;
-  if(pickerMap){pickerMap.remove();pickerMap=null;}
-  pickerMarker=null;
-}
+export function destroyPickerMap(){pickerRequest++;dispose(pickerState);pickerState=null;pickerMarker=null;}
 export async function createPickerMap(startCoords,{onPick,onLoad,onFail}={}){
-  destroyPickerMap();
-  const request=pickerRequest;
-  try{
-    if(!lib) lib=await import('https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.mjs');
-    if(request!==pickerRequest || document.getElementById('picker-overlay').hidden)return false;
-    pickerMap=new lib.Map({
-      container:'picker-map',center:startCoords,zoom:15,minZoom:10,maxZoom:19,attributionControl:false,
-      style:{version:8,sources:{osm:{type:'raster',tiles:[TILES_URL],tileSize:256,
-        attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>'}},
-        layers:[{id:'base',type:'raster',source:'osm'}]}
-    });
-    pickerMap.addControl(new lib.NavigationControl({showCompass:false}),'top-right');
-    pickerMap.addControl(new lib.AttributionControl({compact:true}),'bottom-left');
-    const marker=document.createElement('div');
-    marker.className='location-preview-anchor';
-    marker.setAttribute('aria-label','Punto seleccionado, arrastrable');
-    const pin=document.createElement('span');pin.className='location-preview-pin';marker.append(pin);
-    pickerMarker=new lib.Marker({element:marker,anchor:'bottom',draggable:true}).setLngLat(startCoords).addTo(pickerMap);
-    pickerMap.on('click',e=>{
-      if(request!==pickerRequest)return;
-      const coords=[e.lngLat.lng,e.lngLat.lat];
-      pickerMarker?.setLngLat(coords);
-      onPick?.(coords);
-    });
-    pickerMarker.on('dragend',()=>{
-      if(request!==pickerRequest)return;
-      const pos=pickerMarker.getLngLat();onPick?.([pos.lng,pos.lat]);
-    });
-    pickerMap.on('load',()=>{if(request!==pickerRequest)return;pickerMap?.resize();onLoad?.();});
-    pickerMap.on('error',e=>console.warn('Mapa de selección:',e?.error?.message||'Error de teselas'));
-    return true;
-  }catch(err){
-    console.warn('Selector de ubicación no disponible:',err);
-    destroyPickerMap();onFail?.();return false;
-  }
+ destroyPickerMap();const request=pickerRequest;
+ try{const L=await loadLibrary();if(request!==pickerRequest||document.getElementById('picker-overlay').hidden)return false;
+ if(!validCoordinates(startCoords))startCoords=DEFAULT_CENTER;
+ pickerState=makeMap(L,document.getElementById('picker-map'),startCoords,15,{controls:true});
+ const s=pickerState,pinItem={id:'picker',type:'citizen',title:'Punto seleccionado',coordinates:startCoords};
+ pickerMarker=L.marker(toLatLng(startCoords),{icon:icon(L,pinItem,false),draggable:true,keyboard:true}).addTo(s.instance);
+ const pick=p=>{if(request!==pickerRequest)return;const c=[p.lng,p.lat];if(!validCoordinates(c))return;pickerMarker.setLatLng(p);onPick?.(c);};
+ s.instance.on('click',e=>pick(e.latlng));pickerMarker.on('dragend',()=>pick(pickerMarker.getLatLng()));onLoad?.();return true;
+ }catch(error){if(request===pickerRequest){destroyPickerMap();onFail?.();}return false;}
 }

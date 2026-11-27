@@ -1,5 +1,5 @@
 import {CATEGORY_OPTIONS, PLACES, TYPE_INFO, dateISO, offsetDate, WALL_TOPICS, matchesWallTopic} from './data.js';
-import {initMap, setMapItems, focusMapItem, resizeMap, setRegionData, setSelectedRegion, refreshEmbeddedMaps, destroyEmbeddedMaps, createLocationPreview, destroyLocationPreview, createPickerMap, destroyPickerMap} from './map.js';
+import {initMap, setMapItems, focusMapItem, resizeMap, setRegionData, setSelectedRegion, refreshEmbeddedMaps, destroyEmbeddedMaps, createLocationPreview, destroyLocationPreview, createPickerMap, destroyPickerMap} from './map.js?v=2.4-r1';
 import {loadBundledRegions,setRegions,regionNames,pointInRegion,matchingRegion} from './regions.js';
 import {THEMES, themeSelection, activePalette, applyTheme, choosePreset, chooseCustom, restoreDefault} from './theme.js';
 import {initializeAuth, refreshIdentity, createAccount, loginAccount, logoutAccount, requestPasswordReset, changePassword} from './auth.js';
@@ -7,7 +7,7 @@ import {loadLocalProfile, normalizeUsername, validUsername} from './profile.js';
 import {editImage,closeCrop} from './crop.js';
 import {authorIdFor,personFor,syncPerson,followersOf,followingOf,isFollowing,commentsFor,countComments,localPersonIds,setSocialSnapshot,clearSocialSnapshot,voteCountFor} from './social.js';
 import {SUPABASE_URL} from './supabase-config.js';
-import {loadNotificationsV13,socialAction,loadCommunity,createPost,updateProfileServer,createCommentServer,deleteCommentServer,followServer,voteServer,moderatePostServer,resolvePostServer,uploadDataImage,removeImageServer} from './remote.js';
+import {loadNotificationsV13,socialAction,loadCommunity,createPost,updateProfileServer,createCommentServer,deleteCommentServer,followServer,voteServer,moderatePostServer,resolvePostServer,uploadDataImage,removeImageServer} from './remote.js?v=2.4-r1';
 
 import {selectTrends, avatarInitial} from './community-v12.js';
 import {parseRoute, postPath, profilePath, sections, viewPaths, authPaths} from './router-v21.js';
@@ -16,7 +16,7 @@ import {keepCurrentViewOnIdentity} from './session-view-v222.js';
 import {submitVisitorPost,reportSnapshot,zones,zoneSet,reportAction,trackedType,similarReports,reportProgress,labels as reportLabels} from './community-v23.js';
 let reportRecords={},zoneAlerts=[],zoneReady=false;
 import {installColorPicker,selectFollowing} from './community-v13.js';
-import {createForum} from './forum-v20.js';
+import {createForum} from './forum-v20.js?v=2.4-r1';
 import {installSelects,refreshSelects} from './selectors-v20.js';
 import {setupDaily} from './daily-bar.js';
 let feedMode='explorar',guestMode=false,replyId=null,socialState={saved:[],notifications:[],flags:[],commentVotes:[]};
@@ -241,7 +241,7 @@ function scheduleMapCards(){requestAnimationFrame(()=>refreshEmbeddedMaps());}
 function embeddedMap(item){
   if(!Array.isArray(item.coordinates)||item.coordinates.length!==2||!item.coordinates.every(Number.isFinite))return '';
   const [lon,lat]=item.coordinates;
-  return `<div class="embedded-map-shell" aria-label="Mapa de esta publicación"><div class="post-embedded-map" data-coords="${lon},${lat}" role="region" aria-label="Ubicación de ${esc(item.title)}; un solo marcador"></div></div>`;
+  return `<div class="embedded-map-shell" aria-label="Mapa de esta publicación"><div class="post-embedded-map" data-coords="${lon},${lat}" data-type="${esc(item.type)}" data-category="${esc(item.category)}" data-title="${esc(item.title)}" data-resolved="${!!item.resolvedAt}" role="region" aria-label="Ubicación de ${esc(item.title)}; un solo marcador"></div></div>`;
 }
 function openExpandedMap(){
   if(mapIsExpanded||view!=='explorar')return;
@@ -410,7 +410,7 @@ function renderPostPage(){
         <h1>${esc(item.title)}</h1>${eventDateMarkup(item)}${item.description?`<p class="post-detail-description">${esc(item.description)}</p>`:''}
         ${imageURL(item.image)?`<img class="post-detail-image" src="${esc(imageURL(item.image))}" alt="Imagen de la publicación">`:''}
         ${embeddedMap(item)}
-        ${isSafeURL(item.sourceUrl)?`<p><a href="${esc(isSafeURL(item.sourceUrl))}" target="_blank" rel="noopener noreferrer">Consultar fuente original</a></p>`:''}
+        ${isSafeURL(item.sourceUrl||item.externalUrl)?`<p><a href="${esc(isSafeURL(item.sourceUrl||item.externalUrl))}" target="_blank" rel="noopener noreferrer">${item.sourceUrl?'Consultar fuente original':'Abrir enlace externo'}</a></p>`:''}
         ${item.review!=='approved'?`<p class="social-local-note">${esc(statusLabel(item))}</p>`:''}
       </div>
       <div class="post-detail-actions"><button type="button" data-action="helpful" class="${helpfulVotes.has(item.id)?'voted':''}" aria-pressed="${helpfulVotes.has(item.id)}">▲ ${voteCount(item)} · Me sirve</button><span>▤ ${rows.length} comentarios</span>${ownAuthor?'<span>Tu publicación</span>':''}</div>
@@ -628,6 +628,7 @@ function openReportForm(){
         <div class="drawer-field"><label for="report-category">Categoría</label><select id="report-category" required>${categories}</select></div>
         <div class="drawer-field"><label for="report-title">Título *</label><input id="report-title" maxlength="100" minlength="3" required placeholder="Ej. Corte de energía eléctrica"></div>
         <div class="drawer-field"><label for="report-description">Descripción (opcional)</label><textarea id="report-description" maxlength="800" placeholder="Si lo deseas, agrega un poco más de contexto…"></textarea></div>
+        <div class="drawer-field" id="report-link-field" ${initialType==='infrastructure'?'hidden':''}><label for="report-link">Enlace externo (opcional)</label><input id="report-link" type="url" maxlength="2048" placeholder="https://..." ${initialType==='infrastructure'?'disabled':''}><small>Agrega una fuente, evento o sitio web relacionado.</small></div>
         <div class="drawer-field"><label for="report-place">Ubicación aproximada (opcional)</label><div class="location-choice"><select id="report-place"><option value="none" selected>Sin ubicación</option>${PLACES.map((p,idx)=>`<option value="${idx}">${esc(p.name)}</option>`).join('')}</select><button id="choose-map-point" class="soft-btn" type="button">⌖ Mapa</button></div><small id="coordinates-hint" class="picked-coords">Puedes elegir una zona o marcarla directamente en el mapa.</small><div class="v23-location-help"><button type="button" class="soft-btn" id="use-device-location">Usar mi ubicación actual</button><small>Solo con tu permiso; el GPS es opcional. La ubicación elegida se hará pública.</small></div></div>
         <div class="drawer-field"><label for="report-zone">Colonia (opcional)</label><input id="report-zone" maxlength="100" list="v23-places" placeholder="Nombre de la colonia"><datalist id="v23-places">${PLACES.map(p=>'<option value="'+esc(p.name)+'"></option>').join('')}</datalist><small>Permite recibir alertas sobre esta zona sin compartir coordenadas.</small></div>
         <div class="drawer-field" id="event-field" ${initialType==='social'?'':'hidden'}><label for="report-event">Fecha del evento (opcional)</label><input id="report-event" type="date" min="${dateISO()}"></div><div class="drawer-field"><label for="report-photo">Fotografía (opcional)</label><input id="report-photo" type="file" accept="image/jpeg,image/png,image/webp"><small>JPG, PNG o WebP, máximo 4 MB. La imagen se publicará tras la aprobación del reporte.</small></div>
@@ -637,24 +638,25 @@ function openReportForm(){
 }
 function openNewsForm(){
   if(role!=='editor'){showToast('Solo una cuenta con rol Editor puede añadir noticias.');return;}
+  chosenCoordinates=null;customMapPoint=false;
   openDrawer(drawerHead('PANEL EDITORIAL','Agregar noticia','Las noticias deben tener una fuente y enlace verificables.')+
     `<div class="drawer-body"><form id="news-form">
       <div class="drawer-field"><label for="news-category">Categoría</label><select id="news-category">${WALL_TOPICS.news.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select></div><div class="drawer-field"><label for="news-title">Título</label><input id="news-title" required minlength="8" maxlength="110"></div>
       <div class="drawer-field"><label for="news-desc">Resumen</label><textarea id="news-desc" required minlength="15" maxlength="800"></textarea></div>
       <div class="drawer-field"><label for="news-source">Nombre del medio o fuente</label><input id="news-source" required maxlength="100" placeholder="Nombre del medio local"></div>
       <div class="drawer-field"><label for="news-link">Enlace de la fuente</label><input id="news-link" type="url" required placeholder="https://..."></div>
-      <div class="drawer-field"><label for="news-place">Ubicación en el mapa</label><select id="news-place"><option value="none">Toda la ciudad / sin lugar fijo</option>${PLACES.map((p,idx)=>`<option value="${idx}">${esc(p.name)}</option>`).join('')}</select></div>
+      <div class="drawer-field"><label for="news-place">Ubicación en el mapa</label><div class="location-choice"><select id="news-place"><option value="none">Toda la ciudad / sin lugar fijo</option>${PLACES.map((p,idx)=>`<option value="${idx}">${esc(p.name)}</option>`).join('')}</select><button id="choose-map-point" type="button" class="soft-btn">⌖ Mapa</button></div><small id="coordinates-hint" class="picked-coords">Elige una zona o marca un punto exacto en el mapa.</small></div>
       <p class="form-note">La noticia se publicará para las cuentas registradas. Verifica la fuente antes de compartirla.</p>
       <button class="submit-btn" type="submit">Guardar noticia</button>
     </form></div>`,'center');
 }
 function isSafeURL(str){
-  try {const url=new URL(str);return ['https:','http:'].includes(url.protocol)?url.href:null;}catch{return null;}
+  try {const url=new URL(str);return ['https:','http:'].includes(url.protocol)&&!url.username&&!url.password&&url.hostname?url.href:null;}catch{return null;}
 }
 function detail(item){
   const type=typeLabel(item);
   const isOwner=item.owner==='local' && item.ownerUserId===currentIdentity?.user?.id;
-  const sourceLink=isSafeURL(item.sourceUrl);
+  const sourceLink=isSafeURL(item.sourceUrl||item.externalUrl);
   const caption='Reporte ciudadano compartido a través de Supabase.';
   const editorActions=(role==='editor' && item.review==='approved' && item.type==='infrastructure' && !item.resolvedAt)
     ?`<button type="button" class="soft-btn" data-resolve="${esc(item.id)}">✓ Marcar como atendido</button>`:'';
@@ -666,7 +668,7 @@ function detail(item){
     <div class="detail-grid"><div class="detail-cell"><small>Ubicación</small><strong>${esc(item.location||'Sin lugar fijo')}</strong></div><div class="detail-cell"><small>Fecha y hora</small><strong>${esc(dateLabel(item.day))}, ${esc(item.clock)}</strong></div><div class="detail-cell"><small>Origen</small><strong>${esc(item.type==='news'?(item.sourceName||'Sin fuente'): 'Reporte ciudadano · No oficial')}</strong></div><div class="detail-cell"><small>Estado</small><strong>${esc(statusLabel(item))}</strong></div></div>
     <p class="detail-content">${esc(item.description)}</p>
     ${item.image?`<img class="detail-photo" src="${esc(item.image)}" alt="Fotografía proporcionada con el reporte">`:''}
-    ${sourceLink?`<p><a href="${esc(sourceLink)}" target="_blank" rel="noopener noreferrer">Consultar fuente original ↗</a></p>`:''}
+    ${sourceLink?`<p><a href="${esc(sourceLink)}" target="_blank" rel="noopener noreferrer">${item.sourceUrl?'Consultar fuente original':'Abrir enlace externo'} ↗</a></p>`:''}
     ${item.rejectionReason?`<p class="form-note">Motivo del rechazo: ${esc(item.rejectionReason)}</p>`:''}
     <div class="detail-note">${esc(caption)}</div>
     ${item.coordinates?`<div class="action-row"><button class="soft-btn" type="button" data-focus="${esc(item.id)}">⌖ Ver ubicación en el mapa</button></div>`:''}
@@ -711,7 +713,10 @@ async function handleReportSubmit(event){
   const description=$('#report-description').value.trim(),coordinates=chosenCoordinates?.slice()||null,alert_zone=$('#report-zone').value.trim()||null;
   const suggestions=similarReports(items,{type,category,title,description,coordinates});
   if(suggestions.length&&!confirm('Encontramos reportes similares:\n'+suggestions.map(x=>'• '+x.post.title+(Number.isFinite(x.distance)&&x.distance<=300?' (ubicación cercana)':'')).join('\n')+'\n\n¿Quieres enviar tu reporte de todos modos?'))return;
-  const input={type,category,title,description,alert_zone,
+  const rawLink=type==='infrastructure'?'':$('#report-link').value.trim();
+   const external_url=rawLink?isSafeURL(rawLink):null;
+   if(rawLink&&(!external_url||external_url.length>2048))throw Error('Introduce un enlace HTTP o HTTPS válido.');
+   const input={type,category,title,description,alert_zone,external_url,
    location:coordinates?($('#report-place').selectedOptions[0]?.textContent||'Ubicación aproximada'):(alert_zone||'Toda la ciudad'),
    longitude:coordinates?.[0]??null,latitude:coordinates?.[1]??null,event_day:type==='social'?($('#report-event').value||null):null,review:'pending'};
   const file=$('#report-photo').files[0],photo=file?await compressedPhoto(file):null;
@@ -728,7 +733,7 @@ async function handleNewsSubmit(event){
  try{
   await requireCommunity();const source_url=isSafeURL($('#news-link').value);
   if(!source_url)throw Error('Introduce un enlace de fuente válido.');
-  const placeValue=$('#news-place').value,loc=placeValue==='none'?null:PLACES[Number(placeValue)];
+  const placeValue=$('#news-place').value,loc=placeValue==='map-selected'&&chosenCoordinates?{name:'Punto marcado en el mapa',coordinates:chosenCoordinates}:placeValue==='none'?null:PLACES[Number(placeValue)];
   const title=$('#news-title').value.trim(),description=$('#news-desc').value.trim(),source_name=$('#news-source').value.trim();
   if(title.length<8||description.length<15||!source_name)throw Error('Completa todos los datos de la noticia.');
   await createPost({user_id:currentPersonId(),type:'news',title,description,category:$('#news-category').value,
@@ -760,7 +765,7 @@ function closePicker(){
   if(returnFocus?.isConnected) returnFocus.focus({preventScroll:true});
 }
 function pickLocation(){
-  if(!$('#report-form')) return;
+  if(!$('#report-form')&&!$('#news-form')) return;
   pickerReturnFocus=document.activeElement;
   pickerCoords=chosenCoordinates?.slice()||PLACES[0].coordinates.slice();
   $('#picker-coordinates').textContent=`${pickerCoords[1].toFixed(5)}, ${pickerCoords[0].toFixed(5)}`;
@@ -799,7 +804,7 @@ function confirmPicker(){
   if(!pickerCoords || $('#picker-confirm').disabled) return;
   chosenCoordinates=pickerCoords.slice();
   customMapPoint=true;
-  const choice=$('#report-place');
+  const choice=$('#report-place')||$('#news-place');
   if(choice){
     let option=choice.querySelector('option[value="map-selected"]');
     if(!option){option=new Option('Punto marcado en el mapa','map-selected');choice.add(option);}
@@ -808,7 +813,7 @@ function confirmPicker(){
   const hint=$('#coordinates-hint');
   if(hint)hint.textContent=`Ubicación elegida en mapa: ${chosenCoordinates[1].toFixed(5)}, ${chosenCoordinates[0].toFixed(5)}.`;
   closePicker();
-  showToast('Ubicación guardada en tu reporte. Puedes continuar sin salir del formulario.');
+  showToast('Ubicación guardada. Puedes continuar sin salir del formulario.');
 }
 
 $('#account-panel').addEventListener('click', e => {
@@ -950,6 +955,8 @@ document.querySelector('#region-geojson-import')?.addEventListener('change',asyn
 $('#side-nav').addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b)setView(b.dataset.view);});
 $('#composer-report').addEventListener('click',openReportForm);
 $('#composer-create').addEventListener('click',openReportForm);
+$('#map-retry-init').addEventListener('click',()=>{ensureMap();});
+window.addEventListener('online',()=>{if(view==='explorar'&&!mapStarted)ensureMap();});
 $('#refresh-now').addEventListener('click',()=>{void refreshCommunity();});
 $('#feed-mode-tabs').addEventListener('click',e=>{const b=e.target.closest('[data-feed-mode]');if(!b||!currentPersonId())return;feedMode=b.dataset.feedMode;if(feedMode==='siguiendo')wallSection='news';render();});
 $('#trends-list').addEventListener('click',e=>{
@@ -1057,9 +1064,10 @@ $('#drawer').addEventListener('click',e=>{
 $('#drawer').addEventListener('change',e=>{
   if(e.target.id==='report-type'){
     const type=e.target.value;$('#event-field').hidden=type!=='social';if(type!=='social')$('#report-event').value='';
+    const allowLink=type==='social'||type==='citizen';$('#report-link-field').hidden=!allowLink;$('#report-link').disabled=!allowLink;if(!allowLink)$('#report-link').value='';
     $('#report-category').innerHTML=CATEGORY_OPTIONS[type].map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
   }
-  if(e.target.id==='report-place'){
+  if(['report-place','news-place'].includes(e.target.id)){
     if(e.target.value==='none'){chosenCoordinates=null;customMapPoint=false;$('#coordinates-hint').textContent='No se mostrará ubicación en esta publicación.';return;}
     const place=PLACES[Number(e.target.value)];
     if(place){chosenCoordinates=place.coordinates.slice();customMapPoint=false;$('#coordinates-hint').textContent=`Punto aproximado: ${chosenCoordinates[1].toFixed(4)}, ${chosenCoordinates[0].toFixed(4)}. Pulsa «Mapa» para precisar.`;}
@@ -1099,7 +1107,7 @@ function ensureMap() {
   },onSelect(id){
     const item=items.find(i=>i.id===id);if(!item)return;
     jumpToWall(item);
-  },onFail(){ $('#map-fallback').hidden=false; }})
+  },onFail(){ mapStarted=false;$('#map-fallback').hidden=false; }})
     .then(ok=>{if(ok){$('#map-fallback').hidden=true;setMapItems(view==='explorar'?visibleForDay().filter(i=>i.coordinates):[],selectedId);setTimeout(resizeMap,400);}});
 }
 function onIdentityChange(state){
@@ -1182,16 +1190,17 @@ installRouter();
 void initializeAuth(onIdentityChange);
 
 function v13Button(kind,id,label){return '<button type="button" class="v13-panel-button" data-v13="'+esc(kind)+'" data-v13-id="'+esc(id||'')+'">'+esc(label)+'</button>';}
-function v13PostActions(item){return '<div class="v13-actions">'+(item.review==='approved'?v13Button('share',item.id,'Compartir')+v13Button('save',item.id,socialState.saved.includes(item.id)?'Quitar de guardados':'Guardar')+v13Button('flag-post',item.id,'Denunciar'):'')+(ownPost(item)?(item.type!=='news'?v13Button('edit-post',item.id,'Editar'):'')+v13Button('delete-post',item.id,'Eliminar'):'')+'</div>';}
+function v13PostActions(item){return '<div class="v13-actions">'+(item.review==='approved'?v13Button('share',item.id,'Compartir')+v13Button('save',item.id,socialState.saved.includes(item.id)?'Quitar de guardados':'Guardar')+v13Button('flag-post',item.id,'Denunciar'):'')+(ownPost(item)?(item.type!=='news'?v13Button('edit-post',item.id,'Editar'):'')+v13Button('delete-post',item.id,'Eliminar'):'')+(role==='editor'&&!ownPost(item)?v13Button('moderate-delete-post',item.id,'Eliminar publicación'):'')+'</div>';}
 function v13CommentActions(c,rows){const parent=rows.find(r=>r.id===c.parentId),votes=socialState.commentVotes.filter(v=>v.comment_id===c.id);return (parent?'<small class="comment-reply-note">En respuesta a @'+esc(personFor(parent.authorId)?.username||'usuario')+'</small>':'')+(c.editedAt?'<small> · Editado</small>':'')+'<div class="v13-actions">'+v13Button('reply',c.id,'Responder')+v13Button('vote-comment',c.id,guestMode?'Votar':'▲ '+votes.length)+v13Button('flag-comment',c.id,'Denunciar')+(c.authorId===currentPersonId()?v13Button('edit-comment',c.id,'Editar'):'')+'</div>';}
 const notificationText={zone_alert:'Nueva publicación en una colonia de interés',approved:'Tu publicación fue aprobada',rejected:'Tu publicación fue rechazada',follow:'Tienes un nuevo seguidor',comment:'Comentaron tu publicación',reply:'Respondieron a tu comentario',mention:'Te mencionaron en un comentario'};
 function renderV13Panel(){const p=$('#v13-panel');let body='';
  if(view==='guardados'){body='<h2>Publicaciones guardadas</h2>'+items.filter(i=>socialState.saved.includes(i.id)&&i.review==='approved').map(i=>'<div class="v13-panel-row">'+esc(i.title)+' '+v13Button('open',i.id,'Ver publicación')+v13Button('save',i.id,'Quitar')+'</div>').join('');}
  if(view==='notificaciones'){body='<h2>Notificaciones</h2><section class="v23-zones"><h3>Alertas por colonia</h3><p>Recibe avisos dentro de MZT Conecta cuando se aprueben publicaciones que indiquen una de tus colonias. No se usa GPS.</p>'+(zoneReady?'<button type="button" class="v13-panel-button" data-v23="zone-add">Agregar colonia</button><ul>'+zoneAlerts.map(z=>'<li>'+esc(z)+' <button type="button" class="v13-panel-button" data-v23="zone-remove" data-v23-id="'+esc(z)+'">Desactivar</button></li>').join('')+'</ul>':'<p>No se pudieron cargar las preferencias.</p>')+'</section>'+socialState.notifications.map(n=>'<div class="v13-panel-row"><strong>'+esc(notificationText[n.kind]||n.kind)+'</strong><p>'+esc(new Date(n.created_at).toLocaleString('es-MX'))+'</p>'+(!n.read_at?v13Button('read',n.id,'Marcar leída'):'Leída')+(n.post_id?v13Button('open',n.post_id,'Ver publicación'):'')+'</div>').join('');}
- if(view==='denuncias'){body='<h2>Denuncias de la comunidad</h2>'+socialState.flags.filter(f=>f.status==='pending').map(f=>'<div class="v13-panel-row"><strong>'+esc(f.reason)+'</strong><p>'+esc(f.post_id?'Publicación':'Comentario')+' · '+esc(f.post_id||f.comment_id)+'</p>'+v13Button('open',f.post_id||items.find(i=>commentsFor(i.id).some(c=>c.id===f.comment_id))?.id,'Ver contenido')+v13Button('review-flag',f.id,'Marcar revisada')+'</div>').join('');}
+ if(view==='denuncias'){body='<h2>Denuncias de la comunidad</h2>'+socialState.flags.filter(f=>f.status==='pending').map(f=>'<div class="v13-panel-row"><strong>'+esc(f.reason)+'</strong>'+(f.reason_detail?'<p class="v24-flag-reason">'+esc(f.reason_detail)+'</p>':'')+'<p>'+esc(f.post_id?'Publicación':'Comentario')+' · '+esc(f.post_id||f.comment_id)+'</p>'+v13Button('open',f.post_id||items.find(i=>commentsFor(i.id).some(c=>c.id===f.comment_id))?.id,'Ver contenido')+v13Button('review-flag',f.id,'Marcar revisada')+(role==='editor'?v13Button(f.post_id?'moderate-delete-post':'moderate-delete-comment',f.post_id||f.comment_id,'Eliminar contenido'):'')+'</div>').join('');}
  p.innerHTML=body||'<p>Sin resultados.</p>';
 }
 function promptV13(title,fields){return new Promise(resolve=>{const d=document.createElement('dialog');d.className='v13-dialog';d.innerHTML='<form method="dialog"><h2>'+esc(title)+'</h2>'+fields.map(f=>'<label>'+esc(f.label)+(f.options?'<select name="'+esc(f.name)+'">'+f.options.map(o=>'<option>'+esc(o)+'</option>').join('')+'</select>':f.multiline?'<textarea name="'+esc(f.name)+'" maxlength="'+f.max+'" '+(f.required?'required':'')+'>'+esc(f.value||'')+'</textarea>':'<input name="'+esc(f.name)+'" value="'+esc(f.value||'')+'" maxlength="'+f.max+'" '+(f.required?'required':'')+'>')+'</label>').join('')+'<div class="v13-actions"><button type="submit" value="cancel" formnovalidate>Cancelar</button><button type="submit" value="ok">Confirmar</button></div></form>';document.body.append(d);d.addEventListener('close',()=>{const data=d.returnValue==='ok'?Object.fromEntries(new FormData(d.querySelector('form'))):null;d.remove();resolve(data);},{once:true});d.showModal();});}
+function promptFlag(){return new Promise(resolve=>{const d=document.createElement('dialog');d.className='v13-dialog';d.innerHTML='<form method="dialog"><h2>Denunciar contenido</h2><label>Motivo<select name="reason">'+['spam','informacion falsa','acoso','inapropiado','otro'].map(o=>'<option>'+esc(o)+'</option>').join('')+'</select></label><label class="v24-flag-detail" hidden>Describe el motivo<textarea name="reason_detail" maxlength="500" rows="4" placeholder="Explica la razón de tu denuncia..."></textarea></label><div class="v13-actions"><button type="submit" value="cancel" formnovalidate>Cancelar</button><button type="submit" value="ok">Confirmar</button></div></form>';document.body.append(d);const sel=d.querySelector('select'),field=d.querySelector('textarea'),label=field.parentElement;const sync=()=>{label.hidden=sel.value!=='otro';field.required=!label.hidden;field.disabled=label.hidden;if(label.hidden)field.value='';field.setCustomValidity('');};sel.addEventListener('change',sync);field.addEventListener('input',()=>field.setCustomValidity(''));d.querySelector('form').addEventListener('submit',e=>{if(e.submitter?.value==='ok'&&sel.value==='otro'&&!field.value.trim()){e.preventDefault();field.setCustomValidity('Escribe la razón de tu denuncia.');field.reportValidity();}});d.addEventListener('close',()=>{const f=d.returnValue==='ok'?Object.fromEntries(new FormData(d.querySelector('form'))):null;d.remove();resolve(f);},{once:true});sync();d.showModal();});}
 async function shareV13(id){const item=items.find(p=>p.id===id);if(!item||item.review!=='approved')return;const url=new URL(postPath(item),location.origin);const d=document.createElement('dialog');d.className='v13-dialog';d.innerHTML='<form method="dialog"><h2>Compartir publicación</h2><input readonly value="'+esc(url.href)+'"><div class="v13-actions"><button type="button" data-copy>Copiar enlace</button><a target="_blank" rel="noopener noreferrer" href="https://wa.me/?text='+encodeURIComponent(url.href)+'">WhatsApp</a><a target="_blank" rel="noopener noreferrer" href="https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(url.href)+'">Facebook</a></div><button>Cerrar</button></form>';document.body.append(d);d.querySelector('[data-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(url.href);showToast('Enlace copiado.');}catch{d.querySelector('input').select();}};d.addEventListener('close',()=>d.remove(),{once:true});d.showModal();}
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-v13]');if(!b)return;const kind=b.dataset.v13,id=b.dataset.v13Id;
  if(kind==='share')return shareV13(id);
@@ -1201,11 +1210,12 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-v13]
  b.disabled=true;try{let extra;
  if(kind==='save')extra=socialState.saved.includes(id);
  if(kind==='vote-comment')extra=socialState.commentVotes.some(v=>v.comment_id===id&&v.user_id===currentPersonId());
- if(kind.startsWith('flag-')){const f=await promptV13('Denunciar contenido',[{name:'reason',label:'Motivo',options:['spam','informacion falsa','acoso','inapropiado','otro']}]);if(!f)return;extra=f.reason;}
+ if(kind.startsWith('flag-')){const f=await promptFlag();if(!f)return;extra={reason:f.reason,reason_detail:f.reason==='otro'?f.reason_detail.trim():null};}
  if(kind==='edit-post'){const p=items.find(i=>i.id===id);if(!p)return;const f=await promptV13('Editar y enviar a revisión',[{name:'title',label:'Título',value:p.title,max:110,required:true},{name:'description',label:'Descripción',value:p.description,max:800,multiline:true}]);if(!f)return;extra={title:f.title.trim(),description:f.description.trim()};if(extra.title===p.title&&extra.description===p.description)return;if(extra.title.length<3)throw Error('Título demasiado corto.');}
  if(kind==='edit-comment'){const c=commentsFor(selectedId).find(c=>c.id===id);if(!c)return;const f=await promptV13('Editar comentario',[{name:'body',label:'Comentario',value:c.text,max:500,multiline:true,required:true}]);if(!f)return;extra=f.body.trim();if(!extra)throw Error('Comentario vacío.');}
- if(kind==='delete-post'&&!confirm('¿Eliminar permanentemente esta publicación?'))return;
- await socialAction(kind,id,currentPersonId(),extra);if(kind==='delete-post')setView('explorar');await refreshCommunity({quiet:true});showToast('Cambios guardados.');
+ if(kind.startsWith('moderate-delete-')&&role!=='editor')throw Error('Solo los editores pueden eliminar contenido de otros usuarios.');
+ if(['delete-post','moderate-delete-post','moderate-delete-comment'].includes(kind)&&!confirm(kind==='moderate-delete-comment'?'¿Eliminar permanentemente este comentario?':'¿Eliminar permanentemente esta publicación y sus interacciones asociadas?'))return;
+ await socialAction(kind,id,currentPersonId(),extra);if(kind==='delete-post'||(kind==='moderate-delete-post'&&view==='publicacion'))setView('explorar');await refreshCommunity({quiet:true});showToast('Cambios guardados.');
  }catch(error){showToast(error.message||'No se pudo completar la acción.');}finally{if(b.isConnected)b.disabled=false;}
 });
 
@@ -1270,17 +1280,11 @@ function installV20(){
 }
 
 /* v2.1: navegación por historial y transiciones sin recrear el mapa. */
-let mapAnimation=null;
 function animateMapMove(move,animated){
- const panel=$('#map-panel'),before=panel.getBoundingClientRect();mapAnimation?.cancel();mapAnimation=null;
- move();resizeMap();const after=panel.getBoundingClientRect();
- $('#wall-companion').classList.remove('map-animating');
- if(!animated||matchMedia('(prefers-reduced-motion: reduce)').matches||!before.width||!after.width||!before.height||!after.height)return;
- const dx=before.left-after.left,dy=before.top-after.top,sx=before.width/after.width,sy=before.height/after.height;
- if(!panel.animate)return;
- const anim=panel.animate([{transformOrigin:'top left',transform:'translate('+dx+'px,'+dy+'px) scale('+sx+','+sy+')',zIndex:12},{transformOrigin:'top left',transform:'none',zIndex:12}],{duration:380,easing:'cubic-bezier(.22,1,.36,1)'});
- mapAnimation=anim;$('#wall-companion').classList.add('map-animating');anim.onfinish=()=>{if(mapAnimation===anim){mapAnimation=null;$('#wall-companion').classList.remove('map-animating');}resizeMap();};anim.oncancel=()=>$('#wall-companion').classList.remove('map-animating');
+ // Mover el contenedor sin transformarlo: el motor conserva la proyección de las coordenadas.
+ move();$('#wall-companion').classList.remove('map-animating');resizeMap();requestAnimationFrame(resizeMap);
 }
+
 function writeRoute(path,replace=false){
  if(routeLock||!routeReady||location.pathname+location.search===path)return;
  if(!replace)history.replaceState({...history.state,scroll:window.scrollY,filters:{advanced:{...advanced},search,topics:Object.fromEntries(Object.entries(topics).map(([k,v])=>[k,[...v]]))}},'',location.href);

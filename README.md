@@ -39,6 +39,22 @@ Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de m
 
 ## Historial de actualizaciones
 
+### v2.4 — Estabilidad de mapas y experiencia comunitaria
+
+**Mapas**
+- Motor raster común para mapa principal, ampliado, selector y publicaciones: marcadores anclados a coordenadas con tamaño estable, incluyendo infraestructura.
+- Gestión de instancias visibles y recuperación de teselas en blanco sin recargar el muro; control de reintento y conservación de la vista.
+- Ubicación exacta opcional en noticias editoriales.
+- Ampliación de la columna del mapa, tendencias y actividad sin modificar la cuadrícula de publicaciones.
+
+**Moderación y comunidad**
+- Eliminación editorial de publicaciones y comentarios desde denuncias, con confirmación.
+- Explicación obligatoria para nuevas denuncias de motivo «Otro».
+- Enlaces HTTP/HTTPS opcionales en publicaciones sociales y avisos ciudadanos.
+- Botón explícito «Publicar reporte» en móviles y fechas separadas de creación y última respuesta en el foro.
+
+La verificación diferida del correo queda pendiente de integración y validación; se conserva la protección de autenticación existente.
+
 ### v2.3 — Participación y seguimiento ciudadano
 
 **Reportes y comunidad**

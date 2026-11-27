@@ -12,13 +12,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.css">
+  
   <link rel="stylesheet" href="./src/styles.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="./src/v20.css">
   <link rel="stylesheet" href="./src/v22.css?v=2.2.2-r2">
   <link rel="stylesheet" href="./src/v23.css?v=2.3-r2">
-  <script type="module" src="./src/main.js?v=2.3-r2"></script>
+  <link rel="stylesheet" href="./src/v24.css?v=2.4-r1">
+  <script type="module" src="./src/main.js?v=2.4-r1"></script>
 </head>
 <body>
   <section id="auth-gate" class="auth-gate" hidden aria-labelledby="auth-title">
@@ -119,7 +120,7 @@
         <div id="map-home"><section class="map-panel map-hero" id="map-panel" aria-label="Mapa interactivo de Mazatlán">
           <div id="map" class="map-canvas"></div>
           <button id="expand-main-map" type="button" class="map-expand-button" title="Ampliar el mapa" aria-label="Ampliar mapa de Mazatlán">⛶ <span>Ampliar</span></button>
-          <div class="map-fallback" id="map-fallback" hidden><span>⌖</span><strong>El mapa requiere conexión a Internet</strong><small>El muro de publicaciones sigue disponible.</small></div>
+          <div class="map-fallback" id="map-fallback" hidden><span>⌖</span><strong>El mapa requiere conexión a Internet</strong><small>El muro de publicaciones sigue disponible.</small><button class="soft-btn" type="button" id="map-retry-init">Reintentar mapa</button></div>
         </section></div>
 
         <section id="account-panel" class="account-panel" aria-label="Mi cuenta y apariencia" hidden></section>
