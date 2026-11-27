@@ -1,8 +1,12 @@
-# MZT Conecta — v2.4.4
+# MZT Conecta — v2.4.5
 
 **[mztconecta.com](https://mztconecta.com)** · Porque lo que pasa en Mazatlán nos une.
 
 ## Historial de actualizaciones
+
+### v2.4.5 — Moderación del foro
+- Todos los usuarios con rol Editor pueden eliminar conversaciones del foro, con confirmación previa, desde la lista o el detalle en computadora y móvil.
+- Permiso verificado por Supabase mediante políticas de acceso; eliminación en cascada de respuestas y votos de la conversación, sin afectar las publicaciones vinculadas del muro.
 
 ### v2.4.4 — Exploración combinada y navegación móvil
 - Menú móvil desplegable con logo, opciones según los permisos existentes y fotografía de perfil en Mi cuenta cuando esté disponible.
@@ -155,7 +159,7 @@
 
 ## Guía técnica de actualización
 
-- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`, `supabase/upgrade_v20.sql`, `supabase/upgrade_v21.sql`, `supabase/upgrade_v22.sql`, `supabase/upgrade_v23.sql`, `supabase/upgrade_v24.sql`, `supabase/upgrade_v24_email.sql`, `supabase/upgrade_v241.sql`, `supabase/upgrade_v242.sql`. No ejecutar scripts antiguos de instalación sobre producción.
+- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`, `supabase/upgrade_v20.sql`, `supabase/upgrade_v21.sql`, `supabase/upgrade_v22.sql`, `supabase/upgrade_v23.sql`, `supabase/upgrade_v24.sql`, `supabase/upgrade_v24_email.sql`, `supabase/upgrade_v241.sql`, `supabase/upgrade_v242.sql`, `supabase/upgrade_v245.sql`. No ejecutar scripts antiguos de instalación sobre producción.
 - La actualización v1.3.1 utiliza los metadatos de registro solo para el nombre visible y el identificador, nunca para asignar roles.
 - El índice único de perfiles evita duplicados incluso con registros simultáneos. La consulta de disponibilidad devuelve únicamente un booleano.
 - GitHub Actions verifica JavaScript y las migraciones de PostgreSQL en una base aislada.

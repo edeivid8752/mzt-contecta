@@ -190,6 +190,31 @@ try{
  assert.equal(await page.locator('[data-view=moderacion]').isVisible(),false);
  await page.locator('[data-view=mi-cuenta]').click();assert.equal(await page.locator('#v244-menu-toggle').getAttribute('aria-expanded'),'false');
  console.log('v2.4.4: marcadores combinados, centrado en ambas pantallas y menú con permisos comprobados');
+ // Foro real con API simulada: permisos de interfaz, confirmación y eliminación.
+ await page.route('**/src/auth.js',route=>route.fulfill({contentType:'text/javascript',body:'export async function getAuthClient(){return window.forumMock;}'}));
+ await page.addStyleTag({url:url+'/src/v245.css'});
+ await page.evaluate(async()=>{
+  let role='ciudadano',rows=[{id:'24500000-0000-4000-8000-000000000001',title:'Conversación de prueba',body:'Texto',category:'Comunidad',display_name:'Autor',username:'autor',score:1,reply_count:1}];
+  window.forumDeletes=0;
+  window.forumMock={rpc:async()=>({data:{threads:rows,replies:[]}}),from:()=>({delete:()=>({eq:(key,id)=>({select:async()=>{window.forumDeletes++;rows=rows.filter(r=>r.id!==id);return {data:[{id}]};}})})})};
+  const root=document.createElement('section');root.id='forum245-test';document.body.append(root);
+  const {createForum}=await import('/src/forum-v20.js');
+  const forum=createForum(root,{user:()=> 'uid',role:()=>role,posts:()=>[],navigate:()=>{},toast:()=>{},login:()=>{}});
+  window.forumTestRole=r=>{role=r;forum.show();};forum.show();
+ });
+ await page.waitForSelector('#forum245-test .forum-card');
+ assert.equal(await page.locator('#forum245-test [data-delete-thread]').count(),0);
+ await page.evaluate(()=>window.forumTestRole('lector'));
+ await page.waitForFunction(()=>!document.querySelector('#forum245-test').hasAttribute('aria-busy'));
+ assert.equal(await page.locator('#forum245-test [data-delete-thread]').count(),0);
+ await page.evaluate(()=>window.forumTestRole('editor'));
+ await page.locator('#forum245-test [data-delete-thread]').click();
+ await page.locator('.v245-forum-confirm [data-cancel]').click();
+ assert.equal(await page.evaluate(()=>window.forumDeletes),0);
+ await page.locator('#forum245-test [data-delete-thread]').click();
+ await page.locator('.v245-forum-confirm [type=submit]').click();
+ await page.waitForFunction(()=>window.forumDeletes===1&&!document.querySelector('#forum245-test .forum-card'));
+ console.log('v2.4.5: botón editorial, cancelación y eliminación del foro comprobados');
  assert.deepEqual(errors,[]);
  console.log('Chromium: anclajes de todas las categorías, traslado, mapa de publicación, selector, recuperación y ancho del feed correctos');
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}

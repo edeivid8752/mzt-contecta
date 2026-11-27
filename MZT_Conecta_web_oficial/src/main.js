@@ -16,7 +16,7 @@ import {keepCurrentViewOnIdentity} from './session-view-v222.js';
 import {submitVisitorPost,reportSnapshot,zones,zoneSet,reportAction,trackedType,similarReports,reportProgress,labels as reportLabels} from './community-v23.js';
 let reportRecords={},zoneAlerts=[],zoneReady=false;
 import {installColorPicker,selectFollowing} from './community-v13.js';
-import {createForum} from './forum-v20.js?v=2.4.2';
+import {createForum} from './forum-v20.js?v=2.4.5';
 import {installSelects,refreshSelects} from './selectors-v20.js';
 import {setupDaily,mazatlanDay} from './daily-bar.js?v=2.4.1';
 import {officialToday,newApprovedIds,installPhotoViewer} from './experience-v243.js?v=2.4.3';
@@ -1308,7 +1308,7 @@ function renderConnections(){
  $('#connections-panel').innerHTML='<div class="social-back-row"><button class="back-link" data-connections-back type="button">‹ Volver al perfil</button></div><div class="v20-heading"><div><p class="eyebrow">COMUNIDAD</p><h1>'+esc(person.name)+'</h1><p>@'+esc(person.username)+'</p></div></div><div class="connection-tabs"><button type="button" class="filter-chip '+(connectionsMode==='followers'?'is-on':'')+'" data-connections-mode="followers">Seguidores · '+followersOf(connectionsId)+'</button><button type="button" class="filter-chip '+(connectionsMode==='following'?'is-on':'')+'" data-connections-mode="following">Seguidos · '+followingOf(connectionsId)+'</button></div><div class="connection-list">'+(ids.map(row).join('')||'<p class="social-empty">Todavía no hay personas en esta lista.</p>')+'</div>';
 }
 function installV20(){
- forum=createForum($('#forum-panel'),{user:currentPersonId,posts:()=>items,openPost:id=>{const p=items.find(i=>i.id===id);if(p)jumpToWall(p);else showToast('Publicación no disponible. Actualiza el muro.');},login:notSignedIn,toast:showToast,navigate:path=>writeRoute(path)});
+ forum=createForum($('#forum-panel'),{user:currentPersonId,role:()=>role,posts:()=>items,openPost:id=>{const p=items.find(i=>i.id===id);if(p)jumpToWall(p);else showToast('Publicación no disponible. Actualiza el muro.');},login:notSignedIn,toast:showToast,navigate:path=>writeRoute(path)});
  updateDaily=setupDaily($('#daily-bar'),jumpToWall);updateDaily([],mazatlanDay());
  installSelects();
  $('.v20-top').addEventListener('click',e=>{const b=e.target.closest('[data-top-view]');if(!b)return;if(b.dataset.topView==='explorar'){if(view==='explorar')return goHome();setView('explorar');scrollTopPage();return;}setView(b.dataset.topView);scrollTopPage();});

@@ -39,6 +39,10 @@ Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de m
 
 ## Historial de actualizaciones
 
+### v2.4.5 — Moderación del foro
+- Todos los usuarios con rol Editor pueden eliminar conversaciones del foro, con confirmación previa, desde la lista o el detalle en computadora y móvil.
+- Permiso verificado por Supabase mediante políticas de acceso; eliminación en cascada de respuestas y votos de la conversación, sin afectar las publicaciones vinculadas del muro.
+
 ### v2.4.4 — Exploración combinada y navegación móvil
 - Menú móvil desplegable con logo, opciones según los permisos existentes y fotografía de perfil en Mi cuenta cuando esté disponible.
 - Control Centrar en los mapas principales, minimapa lateral de escritorio y mapa ampliado de ambos dispositivos; se oculta al recuperar la vista original y permanece dentro de los límites del mapa.
