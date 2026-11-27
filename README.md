@@ -32,8 +32,10 @@ La experiencia combina un **muro de publicaciones** con un **mapa interactivo** 
 | **Ciudadano** | Publica reportes y participa mediante comentarios, votos y seguimiento de perfiles. |
 | **Lector** | Consulta publicaciones desde la sección de revisión, sin aprobarlas ni rechazarlas. |
 | **Editor** | Revisa publicaciones pendientes y puede aprobarlas, rechazarlas o resolverlas. |
+| **Administrador** | Gestiona establecimientos y campañas publicitarias; puede aprobarlas, pausarlas, renovar su vigencia y consultar estadísticas comerciales. |
+| **Propietario** | Cuenta con los permisos del Administrador y puede conceder o retirar accesos de administración comercial. |
 
-Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de moderación se controlan desde la base de datos.
+Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de moderación se controlan desde la base de datos. Los accesos comerciales de Administrador y Propietario son privados e independientes del rol comunitario.
 
 ## Historial de actualizaciones
 
