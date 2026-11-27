@@ -1,8 +1,13 @@
-# MZT Conecta — v2.4
+# MZT Conecta — v2.4.1
 
 **[mztconecta.com](https://mztconecta.com)** · Porque lo que pasa en Mazatlán nos une.
 
 ## Historial de actualizaciones
+
+### v2.4.1 — Mapa compacto y titulares
+- Mapa principal y barra Al día alineados con Tendencias en escritorio, sin modificar el ancho del muro.
+- Minimapa superior fijo al desplazarse en móviles, con acceso al mapa grande y ampliación.
+- Noticias editoriales simultáneas con vigencia individual, gestión de edición/eliminación y guardado consecutivo; las noticias vencidas permanecen en el muro.
 
 ### v2.4 — Estabilidad de mapas y experiencia comunitaria
 
@@ -130,7 +135,7 @@
 
 ## Guía técnica de actualización
 
-- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`, `supabase/upgrade_v20.sql`, `supabase/upgrade_v21.sql`, `supabase/upgrade_v22.sql`, `supabase/upgrade_v23.sql`, `supabase/upgrade_v24.sql`, `supabase/upgrade_v24_email.sql`. No ejecutar scripts antiguos de instalación sobre producción.
+- Aplicar únicamente las migraciones pendientes, en orden: `supabase/upgrade_v12.sql`, `supabase/upgrade_v13.sql`, `supabase/upgrade_v131.sql`, `supabase/upgrade_v20.sql`, `supabase/upgrade_v21.sql`, `supabase/upgrade_v22.sql`, `supabase/upgrade_v23.sql`, `supabase/upgrade_v24.sql`, `supabase/upgrade_v24_email.sql`, `supabase/upgrade_v241.sql`. No ejecutar scripts antiguos de instalación sobre producción.
 - La actualización v1.3.1 utiliza los metadatos de registro solo para el nombre visible y el identificador, nunca para asignar roles.
 - El índice único de perfiles evita duplicados incluso con registros simultáneos. La consulta de disponibilidad devuelve únicamente un booleano.
 - GitHub Actions verifica JavaScript y las migraciones de PostgreSQL en una base aislada.

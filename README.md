@@ -39,6 +39,11 @@ Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de m
 
 ## Historial de actualizaciones
 
+### v2.4.1 — Mapa compacto y titulares
+- Mapa principal y barra Al día alineados con Tendencias en escritorio, sin modificar el ancho del muro.
+- Minimapa superior fijo al desplazarse en móviles, con acceso al mapa grande y ampliación.
+- Noticias editoriales simultáneas con vigencia individual, gestión de edición/eliminación y guardado consecutivo; las noticias vencidas permanecen en el muro.
+
 ### v2.4 — Estabilidad de mapas y experiencia comunitaria
 
 **Mapas**

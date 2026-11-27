@@ -18,8 +18,8 @@
   <link rel="stylesheet" href="./src/v20.css">
   <link rel="stylesheet" href="./src/v22.css?v=2.2.2-r2">
   <link rel="stylesheet" href="./src/v23.css?v=2.3-r2">
-  <link rel="stylesheet" href="./src/v24.css?v=2.4-r2">
-  <script type="module" src="./src/main.js?v=2.4-r2"></script>
+  <link rel="stylesheet" href="./src/v24.css?v=2.4.1">
+  <script type="module" src="./src/main.js?v=2.4.1"></script>
 </head>
 <body>
   <section id="auth-gate" class="auth-gate" hidden aria-labelledby="auth-title">
@@ -118,7 +118,7 @@
 
         <!-- El mapa es una vista principal en la cabecera del muro. -->
         <div id="map-home"><section class="map-panel map-hero" id="map-panel" aria-label="Mapa interactivo de Mazatlán">
-          <div id="map" class="map-canvas"></div>
+          <div id="map" class="map-canvas"></div><button type="button" id="mobile-map-return" hidden aria-label="Volver al mapa grande">↑ Mapa grande</button>
           <button id="expand-main-map" type="button" class="map-expand-button" title="Ampliar el mapa" aria-label="Ampliar mapa de Mazatlán">⛶ <span>Ampliar</span></button>
           <div class="map-fallback" id="map-fallback" hidden><span>⌖</span><strong>El mapa requiere conexión a Internet</strong><small>El muro de publicaciones sigue disponible.</small><button class="soft-btn" type="button" id="map-retry-init">Reintentar mapa</button></div>
         </section></div>
@@ -246,7 +246,7 @@
       <footer><span id="expanded-map-count">Mostrando publicaciones con ubicación</span><button type="button" id="expanded-map-back">Volver al muro</button></footer>
     </section>
   </div>
-  <button type="button" id="mobile-map-return" hidden aria-label="Volver al mapa"><span aria-hidden="true">↑</span> Volver al mapa</button>
+  
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

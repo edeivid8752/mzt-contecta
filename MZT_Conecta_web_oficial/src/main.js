@@ -7,7 +7,7 @@ import {loadLocalProfile, normalizeUsername, validUsername} from './profile.js';
 import {editImage,closeCrop} from './crop.js';
 import {authorIdFor,personFor,syncPerson,followersOf,followingOf,isFollowing,commentsFor,countComments,localPersonIds,setSocialSnapshot,clearSocialSnapshot,voteCountFor} from './social.js';
 import {SUPABASE_URL} from './supabase-config.js';
-import {loadNotificationsV13,socialAction,loadCommunity,createPost,updateProfileServer,createCommentServer,deleteCommentServer,followServer,voteServer,moderatePostServer,resolvePostServer,uploadDataImage,removeImageServer} from './remote.js?v=2.4-r1';
+import {loadNotificationsV13,socialAction,loadCommunity,createPost,editEditorialNews,updateProfileServer,createCommentServer,deleteCommentServer,followServer,voteServer,moderatePostServer,resolvePostServer,uploadDataImage,removeImageServer} from './remote.js?v=2.4.1';
 
 import {selectTrends, avatarInitial} from './community-v12.js';
 import {parseRoute, postPath, profilePath, sections, viewPaths, authPaths} from './router-v21.js';
@@ -18,7 +18,7 @@ let reportRecords={},zoneAlerts=[],zoneReady=false;
 import {installColorPicker,selectFollowing} from './community-v13.js';
 import {createForum} from './forum-v20.js?v=2.4-r1';
 import {installSelects,refreshSelects} from './selectors-v20.js';
-import {setupDaily} from './daily-bar.js';
+import {setupDaily,mazatlanDay} from './daily-bar.js?v=2.4.1';
 let feedMode='explorar',guestMode=false,replyId=null,socialState={saved:[],notifications:[],flags:[],commentVotes:[]};
 let routeReady=false,routeLock=false,pendingRoute=null,sessionChecked=false,returnAfterLogin=null;
 const recoveryAtBoot=new URLSearchParams(location.hash.slice(1)).get('type')==='recovery'||new URLSearchParams(location.search).get('type')==='recovery';let recoveryCompleted=false;
@@ -508,13 +508,13 @@ function render() {
   const commercial=['business','ad-admin','advertise'].includes(view);$('#commerce-panel').hidden=!commercial;if(view!=='explorar')$('#mobile-map-return').hidden=true;if(!commercial)ads?.leave();
   $('#sign-out span:last-child').textContent=guestMode?'Iniciar sesión':'Cerrar sesión';
   $('.page-heading').hidden = alternate;
-  if(view!=='explorar')undockMap();
+  if(view!=='explorar'){undockMap();clearMobileDock();}
   $('#map-panel').hidden = view!=='explorar';$('#map-home').hidden=view!=='explorar';
   $('#daily-bar').hidden=view!=='explorar';$('#wall-companion').hidden=view!=='explorar';$('.social-layout').classList.toggle('moderation-only',view==='moderacion');
   $('#forum-panel').hidden=view!=='foro';$('#about-panel').hidden=view!=='about';$('#connections-panel').hidden=view!=='connections';
   document.querySelectorAll('.v20-tabs [data-top-view]').forEach(b=>{if(b.dataset.topView===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   $('#topic-filters').hidden=view!=='explorar';$('.compose-strip').hidden=view!=='explorar';
-  updateDaily?.(items,dateISO());
+  updateDaily?.(items,mazatlanDay());
   $('.social-layout').hidden = alternate;
   $('#account-panel').hidden = view!=='configuracion';
   $('#profile-page').hidden=view!=='mi-cuenta';
@@ -563,7 +563,7 @@ function render() {
     }else{
       $('#feed-content').innerHTML=readerNotice+`<div class="group-label">${role==='lector'?'POR REVISAR':'PENDIENTES'} · ${list.length}</div>`+list.map(i=>`<div class="review-card"><span class="type-tag ${esc(i.type)}">${esc(TYPE_INFO[i.type]?.label||'Reporte')}</span><h3>${esc(i.title)}</h3><p>${esc(short(i.description,110))}</p><div class="card-location">⌖ ${esc(i.location)} · ${esc(statusLabel(i))}</div><div class="review-actions"><button type="button" data-open="${esc(i.id)}">Ver detalle</button>${role==='editor'&&i.review==='pending'?`<button type="button" data-review="${esc(i.id)}" data-decision="reviewed">Marcar revisado</button>`:''}${role==='editor'?`<button type="button" data-review="${esc(i.id)}" data-decision="approved">Aprobar</button><button type="button" data-review="${esc(i.id)}" data-decision="rejected">Rechazar</button>`:''}</div></div>`).join('');
     }
-    if(role==='editor') $('#feed-content').insertAdjacentHTML('afterbegin','<div class="editor-tools"><button type="button" class="soft-btn" data-action="add-news">＋ Agregar noticia con fuente</button></div>');
+    if(role==='editor') $('#feed-content').insertAdjacentHTML('afterbegin',editorialNewsPanel());
     setMapItems([],null);
   }
   document.querySelectorAll('#filter-row .filter-chip').forEach(btn=>{
@@ -646,18 +646,24 @@ function openReportForm(){
         <button type="submit" class="submit-btn">Enviar reporte para revisión</button>
       </form></div>`,'center');
 }
-function openNewsForm(){
+function editorialNewsPanel(){
+ const today=mazatlanDay(),news=items.filter(i=>i.type==='news'&&i.review==='approved').sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+ return '<div class="editor-tools"><button type="button" class="soft-btn" data-action="add-news">＋ Agregar noticia con fuente</button></div><section class="v241-news-panel"><h3>Noticias editoriales · Al día</h3><p>Cada noticia conserva su vigencia; al vencer permanece en el muro.</p>'+ (news.map(i=>{const until=i.dailyUntil||i.dailyDay,active=i.dailyDay<=today&&until>=today;return '<div class="v241-news-row"><div><strong>'+esc(i.title)+'</strong><small>'+ (active?'En Al día':'Fuera de Al día')+' · Hasta '+esc(until)+'</small></div><div class="v13-actions"><button type="button" class="v13-panel-button" data-action="edit-news" data-id="'+esc(i.id)+'">Editar</button>'+v13Button('moderate-delete-post',i.id,'Eliminar')+'</div></div>';}).join('')||'<p>Todavía no hay noticias editoriales.</p>')+'</section>';
+}
+function openNewsForm(item=null){
   if(role!=='editor'){showToast('Solo una cuenta con rol Editor puede añadir noticias.');return;}
-  chosenCoordinates=null;customMapPoint=false;
-  openDrawer(drawerHead('PANEL EDITORIAL','Agregar noticia','Las noticias deben tener una fuente y enlace verificables.')+
-    `<div class="drawer-body"><form id="news-form">
-      <div class="drawer-field"><label for="news-category">Categoría</label><select id="news-category">${WALL_TOPICS.news.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select></div><div class="drawer-field"><label for="news-title">Título</label><input id="news-title" required minlength="8" maxlength="110"></div>
-      <div class="drawer-field"><label for="news-desc">Resumen</label><textarea id="news-desc" required minlength="15" maxlength="800"></textarea></div>
-      <div class="drawer-field"><label for="news-source">Nombre del medio o fuente</label><input id="news-source" required maxlength="100" placeholder="Nombre del medio local"></div>
-      <div class="drawer-field"><label for="news-link">Enlace de la fuente</label><input id="news-link" type="url" required placeholder="https://..."></div>
-      <div class="drawer-field"><label for="news-place">Ubicación en el mapa</label><div class="location-choice"><select id="news-place"><option value="none">Toda la ciudad / sin lugar fijo</option>${PLACES.map((p,idx)=>`<option value="${idx}">${esc(p.name)}</option>`).join('')}</select><button id="choose-map-point" type="button" class="soft-btn">⌖ Mapa</button></div><small id="coordinates-hint" class="picked-coords">Elige una zona o marca un punto exacto en el mapa.</small></div>
-      <p class="form-note">La noticia se publicará para las cuentas registradas. Verifica la fuente antes de compartirla.</p>
-      <button class="submit-btn" type="submit">Guardar noticia</button>
+  chosenCoordinates=item?.coordinates?.slice()||null;customMapPoint=!!chosenCoordinates;
+  openDrawer(drawerHead('PANEL EDITORIAL',item?'Editar noticia':'Agregar noticia','Las noticias deben tener una fuente y enlace verificables.')+
+    `<div class="drawer-body"><form id="news-form" data-news-id="${esc(item?.id||'')}">
+      <div class="drawer-field"><label for="news-category">Categoría</label><select id="news-category">${[...new Set([...WALL_TOPICS.news,...(item?.category?[item.category]:[])])].map(v=>`<option value="${esc(v)}" ${item?.category===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div><div class="drawer-field"><label for="news-title">Título</label><input id="news-title" required minlength="8" maxlength="110" value="${esc(item?.title||'')}"></div>
+      <div class="drawer-field"><label for="news-desc">Resumen</label><textarea id="news-desc" required minlength="15" maxlength="800">${esc(item?.description||'')}</textarea></div>
+      <div class="drawer-field"><label for="news-source">Nombre del medio o fuente</label><input id="news-source" required maxlength="100" placeholder="Nombre del medio local" value="${esc(item?.sourceName||'')}"></div>
+      <div class="drawer-field"><label for="news-link">Enlace de la fuente</label><input id="news-link" type="url" required maxlength="2048" placeholder="https://..." value="${esc(item?.sourceUrl||'')}"></div>
+      <div class="drawer-field"><label for="news-place">Ubicación en el mapa</label><div class="location-choice"><select id="news-place"><option value="none">Toda la ciudad / sin lugar fijo</option>${item?.coordinates?`<option value="map-selected" selected>${esc(item.location||'Punto marcado en el mapa')}</option>`:''}${PLACES.map((p,idx)=>`<option value="${idx}">${esc(p.name)}</option>`).join('')}</select><button id="choose-map-point" type="button" class="soft-btn">⌖ Mapa</button></div><small id="coordinates-hint" class="picked-coords">Elige una zona o marca un punto exacto en el mapa.</small></div>
+      <div class="drawer-field"><label for="news-until">Mostrar en Al día hasta (inclusive)</label><input id="news-until" type="date" required value="${esc(item?.dailyUntil||item?.dailyDay||mazatlanDay())}" min="${esc(item?.dailyDay||mazatlanDay())}"><small>Al vencer, la noticia sigue disponible en el muro.</small></div>
+      <p class="form-note">Verifica la fuente antes de compartirla. Las demás noticias no se reemplazan.</p>
+      <button class="submit-btn" type="submit" value="save">${item?'Guardar cambios':'Guardar noticia'}</button>
+      ${item?'':'<button class="soft-btn v241-add-another" type="submit" value="another">Guardar y agregar otra noticia</button>'}
     </form></div>`,'center');
 }
 function isSafeURL(str){
@@ -740,17 +746,22 @@ async function handleReportSubmit(event){
 }
 async function handleNewsSubmit(event){
  event.preventDefault();if(role!=='editor')return;
+ const form=event.target,buttons=[...form.querySelectorAll('button[type=submit]')],another=event.submitter?.value==='another',id=form.dataset.newsId,uid=currentPersonId();
+ if(buttons.some(b=>b.disabled))return;buttons.forEach(b=>b.disabled=true);
  try{
   await requireCommunity();const source_url=isSafeURL($('#news-link').value);
-  if(!source_url)throw Error('Introduce un enlace de fuente válido.');
-  const placeValue=$('#news-place').value,loc=placeValue==='map-selected'&&chosenCoordinates?{name:'Punto marcado en el mapa',coordinates:chosenCoordinates}:placeValue==='none'?null:PLACES[Number(placeValue)];
-  const title=$('#news-title').value.trim(),description=$('#news-desc').value.trim(),source_name=$('#news-source').value.trim();
-  if(title.length<8||description.length<15||!source_name)throw Error('Completa todos los datos de la noticia.');
-  await createPost({user_id:currentPersonId(),type:'news',title,description,category:$('#news-category').value,
-   location:loc?.name||'Toda la ciudad',longitude:loc?.coordinates?.[0]??null,latitude:loc?.coordinates?.[1]??null,
-   source_name,source_url,review:'approved'});
-  closeDrawer();await refreshCommunity();setView('explorar');showToast('Noticia publicada en la comunidad.');
+  if(!source_url||source_url.length>2048)throw Error('Introduce un enlace de fuente válido.');
+  const placeValue=$('#news-place').value,loc=placeValue==='map-selected'&&chosenCoordinates?{name:$('#news-place').selectedOptions[0]?.textContent||'Punto marcado en el mapa',coordinates:chosenCoordinates}:placeValue==='none'?null:PLACES[Number(placeValue)];
+  const title=$('#news-title').value.trim(),description=$('#news-desc').value.trim(),source_name=$('#news-source').value.trim(),daily_until=$('#news-until').value;
+  if(title.length<8||description.length<15||!source_name||!daily_until)throw Error('Completa todos los datos de la noticia.');
+  const input={title,description,category:$('#news-category').value,location:loc?.name||'Toda la ciudad',longitude:loc?.coordinates?.[0]??null,latitude:loc?.coordinates?.[1]??null,source_name,source_url,daily_until};
+  if(uid!==currentPersonId()||role!=='editor')throw Error('La sesión cambió.');
+  if(id)await editEditorialNews(id,input);else await createPost({...input,user_id:uid,type:'news',review:'approved'});
+  if(uid!==currentPersonId())return;
+  if(form.isConnected&&$('#drawer').classList.contains('open')){if(another&&!id)openNewsForm();else closeDrawer();}
+  await refreshCommunity();showToast(id?'Noticia actualizada.':another?'Noticia publicada. Puedes agregar otra.':'Noticia publicada en la comunidad.');
  }catch(error){showToast(error.message||'No fue posible publicar la noticia.');}
+ finally{buttons.forEach(b=>{if(b.isConnected)b.disabled=false;});}
 }
 async function handleRejectSubmit(event){
  event.preventDefault();if(role!=='editor')return;
@@ -1060,6 +1071,7 @@ $('#feed-content').addEventListener('click',e=>{
     if(action.dataset.action==='reset-filters')resetAllFilters();
     if(action.dataset.action==='create-report')openReportForm();
     if(action.dataset.action==='add-news'&&role==='editor')openNewsForm();
+    if(action.dataset.action==='edit-news'&&role==='editor'){const item=items.find(i=>i.id===action.dataset.id&&i.type==='news');if(item)openNewsForm(item);}
     if(action.dataset.action==='retry-community'){void refreshCommunity();return;}
     if(action.dataset.action==='helpful'){
       const item=items.find(i=>i.id===action.dataset.id);if(item)void voteOn(item);
@@ -1278,7 +1290,7 @@ function jumpToWall(item){
  requestAnimationFrame(()=>{const card=[...document.querySelectorAll('#feed-content [data-post-id]')].find(n=>n.dataset.postId===item.id);card?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});scheduleDock();});
 }
 function undockMap(){const home=$('#map-home'),panel=$('#map-panel');if(panel.parentNode!==home){animateMapMove(()=>{home.append(panel);home.style.minHeight='';$('#wall-companion').classList.remove('is-docked');$('#restore-map').hidden=true;},view==='explorar'&&!matchMedia('(max-width:820px)').matches);}}
-function scheduleDock(){if(dockQueued)return;dockQueued=true;requestAnimationFrame(()=>{dockQueued=false;const mobile=matchMedia('(max-width:820px)').matches;if(mobile){undockMap();updateMobileMapButton();return;}$('#mobile-map-return').hidden=true;if(view!=='explorar'||mapIsExpanded||$('#map-panel').hidden)return;const home=$('#map-home'),panel=$('#map-panel'),header=$('.v20-top');const dock=home.getBoundingClientRect().bottom<header.getBoundingClientRect().bottom+90;if(dock&&panel.parentNode===home){animateMapMove(()=>{home.style.minHeight=home.getBoundingClientRect().height+'px';$('#map-dock').append(panel);$('#wall-companion').classList.add('is-docked');$('#restore-map').hidden=false;},true);}else if(!dock)undockMap();});}
+function scheduleDock(){if(dockQueued)return;dockQueued=true;requestAnimationFrame(()=>{dockQueued=false;const mobile=matchMedia('(max-width:820px)').matches;if(mobile){if($('#map-panel').parentNode!==$('#map-home'))undockMap();updateMobileMapButton();return;}clearMobileDock();$('#mobile-map-return').hidden=true;if(view!=='explorar'||mapIsExpanded||$('#map-panel').hidden)return;const home=$('#map-home'),panel=$('#map-panel'),header=$('.v20-top');const dock=home.getBoundingClientRect().bottom<header.getBoundingClientRect().bottom+90;if(dock&&panel.parentNode===home){animateMapMove(()=>{home.style.minHeight=home.getBoundingClientRect().height+'px';$('#map-dock').append(panel);$('#wall-companion').classList.add('is-docked');$('#restore-map').hidden=false;},true);}else if(!dock)undockMap();});}
 function renderAbout(){
  $('#about-panel').innerHTML='<article class="about-card"><div class="about-hero"><img src="./assets/isotipo.png" alt="MZT Conecta"><div><p>MAZATLÁN · SINALOA</p><h1>¿Quiénes somos?</h1><p>Una comunidad conectada con su ciudad.</p></div></div><div class="about-copy"><h2>MZT Conecta</h2><p>Somos un proyecto comunitario que busca acercar a las personas de Mazatlán a lo que sucede en su ciudad. Reunimos noticias, actividades, reportes de infraestructura y conversaciones en un solo lugar.</p><h2>Colaboraciones</h2><p>Queremos sumar esfuerzos con la comunidad, negocios locales y organizaciones para dar a conocer iniciativas y actividades que beneficien a Mazatlán.</p><p><a href="/publicidad" class="soft-btn" data-about-ads>Conocer espacios publicitarios</a></p><button class="compose-button" type="button" data-about-home>Volver al muro</button></div></article>';
 }
@@ -1290,7 +1302,7 @@ function renderConnections(){
 }
 function installV20(){
  forum=createForum($('#forum-panel'),{user:currentPersonId,posts:()=>items,openPost:id=>{const p=items.find(i=>i.id===id);if(p)jumpToWall(p);else showToast('Publicación no disponible. Actualiza el muro.');},login:notSignedIn,toast:showToast,navigate:path=>writeRoute(path)});
- updateDaily=setupDaily($('#daily-bar'),jumpToWall);updateDaily([],dateISO());
+ updateDaily=setupDaily($('#daily-bar'),jumpToWall);updateDaily([],mazatlanDay());
  installSelects();
  $('.v20-top').addEventListener('click',e=>{const b=e.target.closest('[data-top-view]');if(!b)return;if(b.dataset.topView==='explorar')return goHome();setView(b.dataset.topView);scrollTopPage();});
  $('#about-panel').addEventListener('click',e=>{if(e.target.closest('[data-about-ads]')&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey){e.preventDefault();setView('advertise');scrollTopPage();return;}if(e.target.closest('[data-about-home]')){setView('explorar');scrollTopPage();}});
@@ -1372,11 +1384,21 @@ function installRouter(){
  },true);
 }
 
+function clearMobileDock(){
+ const home=$('#map-home'),panel=$('#map-panel');if(!home.classList.contains('mobile-docked')){$('#mobile-map-return').hidden=true;return;}
+ home.classList.remove('mobile-docked');panel.classList.remove('is-mobile-docked');home.style.removeProperty('--mzt-mobile-space');home.style.removeProperty('--mzt-mobile-margin');panel.style.removeProperty('--mzt-mobile-top');panel.style.removeProperty('--mzt-mobile-left');panel.style.removeProperty('--mzt-mobile-width');$('#mobile-map-return').hidden=true;requestAnimationFrame(resizeMap);
+}
 function updateMobileMapButton(){
- const button=$('#mobile-map-return'),map=$('#map-home');
- if(!matchMedia('(max-width:820px)').matches||view!=='explorar'||mapIsExpanded||!$('#auth-gate').hidden||map.hidden){button.hidden=true;return;}
- const header=$('.v20-top').getBoundingClientRect().bottom;
- button.hidden=map.getBoundingClientRect().bottom>header;
+ const button=$('#mobile-map-return'),home=$('#map-home'),panel=$('#map-panel');
+ if(!matchMedia('(max-width:820px)').matches||view!=='explorar'||!$('#auth-gate').hidden||home.hidden){clearMobileDock();return;}
+ if(mapIsExpanded){button.hidden=true;return;}
+ const header=$('.v20-top').getBoundingClientRect().bottom,rect=home.getBoundingClientRect();
+ if(rect.bottom>header+6){clearMobileDock();return;}
+ if(!home.classList.contains('mobile-docked')){
+  home.style.setProperty('--mzt-mobile-space',rect.height+'px');home.style.setProperty('--mzt-mobile-margin',getComputedStyle(panel).marginBottom);
+  home.classList.add('mobile-docked');panel.classList.add('is-mobile-docked');requestAnimationFrame(resizeMap);
+ }
+ panel.style.setProperty('--mzt-mobile-top',Math.max(0,header)+'px');panel.style.setProperty('--mzt-mobile-left',rect.left+'px');panel.style.setProperty('--mzt-mobile-width',rect.width+'px');button.hidden=false;
 }
 function installMobileMap(){
  $('#mobile-map-return').addEventListener('click',()=>{
@@ -1386,4 +1408,6 @@ function installMobileMap(){
    window.scrollTo({top:Math.max(0,window.scrollY+map.getBoundingClientRect().top-header-12),behavior});
  });
  matchMedia('(max-width:820px)').addEventListener('change',scheduleDock);
+  window.visualViewport?.addEventListener('resize',scheduleDock);
+  window.visualViewport?.addEventListener('scroll',scheduleDock);
 }

@@ -1,5 +1,6 @@
 // Capa de datos de MZT Conecta v1.2. Solo clave publicable, nunca service_role.
 import {getAuthClient} from './auth.js';
+import {mazatlanDay} from './daily-bar.js?v=2.4.1';
 import {parseRoute} from './router-v21.js';
 const BUCKET='mzt-media';
 const fail=(r)=>{if(r.error)throw Error(r.error.message||'Error de Supabase');return r.data;};
@@ -29,6 +30,7 @@ export async function loadCommunity(visitor=false){
   follows:fail(follows).map(f=>({from:f.follower_id,to:f.followed_id})),votes:fail(votes).map(v=>({postId:v.post_id,userId:v.user_id}))};
 }
 export async function createPost(input){const c=await client();return fail(await c.from('mzt_posts').insert(input).select('id').single());}
+export async function editEditorialNews(id,input){const c=await client();return fail(await c.rpc('mzt_edit_editorial_news',{p_id:id,p_title:input.title,p_description:input.description,p_category:input.category,p_source_name:input.source_name,p_source_url:input.source_url,p_location:input.location,p_longitude:input.longitude,p_latitude:input.latitude,p_daily_until:input.daily_until}));}
 export async function updateProfileServer(id,fields){const c=await client();return fail(await c.from('profiles').update(fields).eq('id',id).select('id,display_name,username,bio,avatar_url,cover_url').single());}
 export async function createCommentServer(postId,userId,body,parentId=null){const c=await client();return fail(await c.from('mzt_comments').insert({post_id:postId,user_id:userId,body,parent_id:parentId}).select('id').single());}
 export async function deleteCommentServer(id){const c=await client();fail(await c.from('mzt_comments').delete().eq('id',id));}
@@ -61,7 +63,7 @@ function mapV13Post(p){
   coordinates:p.longitude==null||p.latitude==null?null:[p.longitude,p.latitude],day:localDate(p.created_at),
   clock:new Date(p.created_at).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false}),
   createdAt:p.created_at,review:p.review,reviewedAt:p.reviewed_at,approvedAt:p.approved_at,resolvedAt:p.resolved_at,
-  eventDay:p.event_day||null,rejectionReason:p.rejection_reason,image:p.photo_url,sourceName:p.source_name,sourceUrl:p.source_url,externalUrl:p.external_url,
+  eventDay:p.event_day||null,dailyUntil:p.daily_until||null,dailyDay:mazatlanDay(new Date(p.created_at)),rejectionReason:p.rejection_reason,image:p.photo_url,sourceName:p.source_name,sourceUrl:p.source_url,externalUrl:p.external_url,
   visitorPost:!!p.visitor_post,alertZone:p.alert_zone||'',owner:'remote',ownerUserId:p.user_id}))(p);
 }
 function mapV13Comment(c){return {id:c.id,postId:c.post_id,authorId:c.user_id,text:c.body,createdAt:c.created_at,parentId:c.parent_id||null,editedAt:c.edited_at||null};}
