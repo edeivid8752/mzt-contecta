@@ -39,6 +39,13 @@ Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de m
 
 ## Historial de actualizaciones
 
+### v2.4.2 — Exploración y categorías
+- Etiquetas de categorías con colores distintivos en las conversaciones del foro.
+- Encabezado del muro alineado con el mapa principal y la barra Al día, sin modificar el ancho de las publicaciones.
+- Vista previa discreta de publicaciones tras mantener el cursor un segundo sobre un marcador, solo en el mapa principal y ampliado de escritorio; sin cambios en el minimapa ni en los mapas de publicaciones.
+- Categoría «Otros» disponible en publicaciones sociales, reportes, noticias editoriales, foro y sus filtros.
+- Botones de exploración de escritorio más grandes, con los iconos y colores característicos de Social, Noticias e Infraestructura.
+
 ### v2.4.1 — Mapa compacto y titulares
 - Mapa principal y barra Al día alineados con Tendencias en escritorio, sin modificar el ancho del muro.
 - Minimapa superior fijo al desplazarse en móviles, con acceso al mapa grande y ampliación.

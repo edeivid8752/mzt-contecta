@@ -113,7 +113,7 @@ try{
   const home=document.createElement('div');home.id='map-home';
   const panel=document.createElement('section');panel.id='map-panel';panel.className='map-panel map-hero';
   const button=document.createElement('button');button.id='mobile-map-return';button.hidden=true;button.textContent='Mapa grande';
-  panel.append(map,button);home.append(panel);fixture.prepend(daily,home);
+  panel.append(map,button);home.append(panel);const heading=document.createElement('div');heading.className='page-heading';heading.textContent='Lo que pasa en Mazatlán';fixture.prepend(daily,heading,home);
   document.querySelector('#main-box').remove();document.querySelector('#dock-box').remove();
   document.querySelector('.feed-panel').style.minHeight='1800px';
   const run=new Function(String.fromCharCode(36),'resizeMap','let view="explorar",mapIsExpanded=false;'+code+';return {update:updateMobileMapButton,clear:clearMobileDock,setView(v){view=v;updateMobileMapButton();}};');
@@ -126,7 +126,20 @@ try{
  const rail=await page.locator('#wall-companion').boundingBox(),hero=await page.locator('#map-panel').boundingBox(),bar=await page.locator('#daily-bar').boundingBox(),feed=await page.locator('.feed-panel').boundingBox();
  assert(Math.abs(rail.x-hero.x)<2&&Math.abs(hero.x-bar.x)<2,'Bordes izquierdos desalineados '+JSON.stringify({rail,hero,bar}));
  assert(Math.abs(hero.x+hero.width-feed.x-feed.width)<2&&Math.abs(bar.x+bar.width-feed.x-feed.width)<2,'Borde derecho desalineado');
+ const heading=await page.locator('.page-heading').boundingBox();
+ assert(Math.abs(heading.x-hero.x)<2,'Encabezado fuera del borde del mapa');
+ async function hoverPin(enter=true){
+  await page.evaluate(enter=>{const pin=document.querySelector('#map .wall-pin');pin.dispatchEvent(new PointerEvent(enter?'pointerover':'pointerout',{bubbles:true,pointerType:'mouse'}));},enter);
+ }
+ await hoverPin();await page.waitForTimeout(400);assert.equal(await page.locator('.v242-map-preview').count(),0);await hoverPin(false);await page.waitForTimeout(700);assert.equal(await page.locator('.v242-map-preview').count(),0);
+ await hoverPin();await page.waitForSelector('.v242-map-preview',{timeout:2000});await hoverPin(false);assert.equal(await page.locator('.v242-map-preview').count(),0);
+ await page.evaluate(()=>{const dock=document.createElement('div');dock.id='map-dock';document.querySelector('.fixture').append(dock);dock.append(document.querySelector('#map-panel'));window.mzt.resizeMap();});
+ await hoverPin();await page.waitForTimeout(1100);assert.equal(await page.locator('.v242-map-preview').count(),0);await hoverPin(false);
+ await page.evaluate(()=>{const host=document.createElement('div');host.id='expanded-map-host';host.style.cssText='position:relative;height:420px;width:100%';document.querySelector('.fixture').append(host);host.append(document.querySelector('#map'));window.mzt.resizeMap();});
+ await page.waitForTimeout(300);await hoverPin();await page.waitForSelector('.v242-map-preview',{timeout:2000});await hoverPin(false);
+ await page.evaluate(()=>{const panel=document.querySelector('#map-panel');panel.prepend(document.querySelector('#map'));document.querySelector('#map-home').append(panel);document.querySelector('#expanded-map-host').remove();document.querySelector('#map-dock').remove();window.mzt.resizeMap();});
  await page.setViewportSize({width:390,height:844});
+ await hoverPin();await page.waitForTimeout(1100);assert.equal(await page.locator('.v242-map-preview').count(),0);await hoverPin(false);
  await page.evaluate(()=>{window.scrollTo({top:0,behavior:'instant'});window.dock.update();});
  await page.waitForTimeout(300);
  const mobileBefore=await page.locator('.feed-panel').evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,width:r.width,y:r.top+window.scrollY};});

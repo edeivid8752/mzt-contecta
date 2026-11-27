@@ -1,5 +1,5 @@
-import {CATEGORY_OPTIONS, PLACES, TYPE_INFO, dateISO, offsetDate, WALL_TOPICS, matchesWallTopic} from './data.js';
-import {initMap, setMapItems, focusMapItem, resizeMap, setRegionData, setSelectedRegion, refreshEmbeddedMaps, destroyEmbeddedMaps, createLocationPreview, destroyLocationPreview, createPickerMap, destroyPickerMap} from './map.js?v=2.4-r1';
+import {CATEGORY_OPTIONS, PLACES, TYPE_INFO, dateISO, offsetDate, WALL_TOPICS, matchesWallTopic} from './data.js?v=2.4.2';
+import {initMap, setMapItems, focusMapItem, resizeMap, setRegionData, setSelectedRegion, refreshEmbeddedMaps, destroyEmbeddedMaps, createLocationPreview, destroyLocationPreview, createPickerMap, destroyPickerMap} from './map.js?v=2.4.2';
 import {loadBundledRegions,setRegions,regionNames,pointInRegion,matchingRegion} from './regions.js';
 import {THEMES, themeSelection, activePalette, applyTheme, choosePreset, chooseCustom, restoreDefault} from './theme.js';
 import {initializeAuth, refreshIdentity, createAccount, loginAccount, logoutAccount, requestPasswordReset, changePassword, requestEmailVerification} from './auth.js';
@@ -16,7 +16,7 @@ import {keepCurrentViewOnIdentity} from './session-view-v222.js';
 import {submitVisitorPost,reportSnapshot,zones,zoneSet,reportAction,trackedType,similarReports,reportProgress,labels as reportLabels} from './community-v23.js';
 let reportRecords={},zoneAlerts=[],zoneReady=false;
 import {installColorPicker,selectFollowing} from './community-v13.js';
-import {createForum} from './forum-v20.js?v=2.4-r1';
+import {createForum} from './forum-v20.js?v=2.4.2';
 import {installSelects,refreshSelects} from './selectors-v20.js';
 import {setupDaily,mazatlanDay} from './daily-bar.js?v=2.4.1';
 let feedMode='explorar',guestMode=false,replyId=null,socialState={saved:[],notifications:[],flags:[],commentVotes:[]};

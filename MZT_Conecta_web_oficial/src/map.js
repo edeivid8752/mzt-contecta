@@ -1,5 +1,6 @@
 // v2.4: motor raster DOM compartido, sin contextos WebGL por publicación.
 import {getRegions} from './regions.js';
+import {installMarkerPreviews} from './map-hover-v242.js?v=2.4.2';
 const TILES_URL='https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const DEFAULT_CENTER=[-106.429,23.241];
 let libPromise,mainState=null,initJob=null,lastItems=[],selected=null,onItemClick,onRegionClick,highlightedRegion=null,requestedFocus=null,ready=false;
@@ -13,7 +14,7 @@ const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 const loadLibrary=()=>libPromise||(libPromise=import('https://unpkg.com/leaflet@1.9.4/dist/leaflet-src.esm.js').then(m=>m.default||m).catch(e=>{libPromise=null;throw e;}));
 const markerFor = (item,interactive=true) => {
  const wrap=document.createElement('div');wrap.className='wall-pin-wrap';
- const el=document.createElement(interactive?'button':'span');if(interactive)el.type='button';
+ const el=document.createElement(interactive?'button':'span');if(interactive){el.type='button';el.dataset.previewPost=String(item.id);}
  const type=['news','citizen','social','infrastructure'].includes(item.type)?item.type:'citizen';
  el.className='wall-pin wall-pin-'+type+(item.resolvedAt?' resolved':'')+(selected===item.id?' selected':'');
  el.setAttribute('aria-label',item.title);
@@ -71,18 +72,19 @@ function makeMap(L,el,center,zoom,{controls=false,maxZoom=19}={}){
  live.add(state);installLifecycle();return state;
  }catch(error){instance.remove();throw error;}
 }
-function dispose(state){if(!state||state.closed)return;state.closed=true;live.delete(state);state.observer?.disconnect();state.retryButton.remove();state.instance.remove();}
+function dispose(state){if(!state||state.closed)return;state.closed=true;live.delete(state);state.observer?.disconnect();state.hover?.dispose();state.retryButton.remove();state.instance.remove();}
 function addPin(state,item,interactive=true){return state.L.marker(toLatLng(item.coordinates),{icon:icon(state.L,item,interactive),keyboard:interactive,interactive}).addTo(state.instance);}
 function pinSignature(item){return JSON.stringify([item.coordinates,item.type,item.category,item.title,!!item.resolvedAt,selected===item.id]);}
 export async function initMap({onSelect,onRegionSelect,onFail}){
  onItemClick=onSelect;onRegionClick=onRegionSelect;
  if(mainState){resizeMap();return true;}if(initJob)return initJob;
- initJob=(async()=>{try{const L=await loadLibrary(),el=document.getElementById('map');mainState=makeMap(L,el,DEFAULT_CENTER,12.05,{maxZoom:18});ready=true;setRegionData();setMapItems(lastItems,selected);if(requestedFocus)focusMapItem(requestedFocus);return true;}catch(error){console.warn('Mapa:',error);dispose(mainState);mainState=null;ready=false;onFail?.();return false;}finally{initJob=null;}})();
+ initJob=(async()=>{try{const L=await loadLibrary(),el=document.getElementById('map');mainState=makeMap(L,el,DEFAULT_CENTER,12.05,{maxZoom:18});mainState.hover=installMarkerPreviews(el,mainState.instance,id=>lastItems.find(item=>String(item.id)===id));ready=true;setRegionData();setMapItems(lastItems,selected);if(requestedFocus)focusMapItem(requestedFocus);return true;}catch(error){console.warn('Mapa:',error);dispose(mainState);mainState=null;ready=false;onFail?.();return false;}finally{initJob=null;}})();
  return initJob;
 }
 export function setMapItems(items,selectedId){
  lastItems=items;selected=selectedId;if(!mainState||!ready)return;
  const state=mainState,keep=new Set();
+ state.hover?.refresh();
  for(const item of items){if(!validCoordinates(item.coordinates))continue;keep.add(item.id);const sig=pinSignature(item),existing=state.pins.get(item.id);
   if(existing?.sig===sig)continue;
   if(existing){existing.marker.setLatLng(toLatLng(item.coordinates));existing.marker.setIcon(icon(state.L,item));existing.sig=sig;}
@@ -99,7 +101,7 @@ export function setRegionData(){
 export function setSelectedRegion(name){highlightedRegion=name||null;mainState?.regions?.setStyle(regionStyle);}
 export function getMainMapView(){return viewOf(mainState);}
 export function focusMapItem(item){if(!validCoordinates(item?.coordinates))return;requestedFocus=item;if(mainState&&ready)mainState.instance.setView(toLatLng(item.coordinates),Math.max(mainState.instance.getZoom(),14),{animate:!reduced()});}
-export function resizeMap(){if(mainState){const s=mainState;if(visible(s.el)){s.instance.invalidateSize({pan:true,animate:false,debounceMoveend:true});check(s);}}}
+export function resizeMap(){if(mainState){const s=mainState;s.hover?.clear();if(visible(s.el)){s.instance.invalidateSize({pan:true,animate:false,debounceMoveend:true});check(s);}}}
 export function isMapReady(){return !!mainState&&ready;}
 function embeddedItem(el){return {id:'embedded',coordinates:(el.dataset.coords||'').split(',').map(Number),title:el.dataset.title||'Ubicación de la publicación',type:el.dataset.type||'citizen',category:el.dataset.category||'',resolvedAt:el.dataset.resolved==='true'?true:null};}
 async function activateEmbeddedMap(el,generation){

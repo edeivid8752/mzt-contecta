@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {CATEGORY_OPTIONS,WALL_TOPICS,matchesWallTopic} from '../src/data.js';
+import {previewAllowed,relativeAge} from '../src/map-hover-v242.js';
+import {readFileSync} from 'node:fs';
+for(const options of [...Object.values(CATEGORY_OPTIONS),...Object.values(WALL_TOPICS)])assert.equal(options.at(-1),'Otros');
+assert(matchesWallTopic({category:'Otros',title:'Tema nuevo'},'Otros'));
+assert(!matchesWallTopic({category:'Comida',title:'Otros restaurantes'},'Otros'));
+const el=(id,...selectors)=>({id,closest:s=>selectors.includes(s)?{}:null});
+assert(previewAllowed(el('map','#map-home'),true));
+assert(previewAllowed(el('map','#expanded-map-host'),true));
+assert(!previewAllowed(el('map','#map-dock'),true));
+assert(!previewAllowed(el('map','#map-home','.is-mobile-docked'),true));
+assert(!previewAllowed(el('map','#expanded-map-host'),false));
+assert(!previewAllowed(el('embedded','#map-home'),true));
+assert.equal(relativeAge('2026-11-27T10:00:00Z',Date.parse('2026-11-27T12:00:00Z')),'Hace 2 horas');
+const forum=readFileSync(new URL('../src/forum-v20.js',import.meta.url),'utf8');assert(forum.includes("'Movilidad','Otros'"));assert(forum.includes('v242-forum-tag'));
+console.log('v2.4.2: categorías, colores, alcance de vista previa y antigüedad correctos');
