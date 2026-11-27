@@ -1,5 +1,5 @@
 import {CATEGORY_OPTIONS, PLACES, TYPE_INFO, dateISO, offsetDate, WALL_TOPICS, matchesWallTopic} from './data.js?v=2.4.2';
-import {initMap, setMapItems, focusMapItem, resizeMap, setRegionData, setSelectedRegion, refreshEmbeddedMaps, destroyEmbeddedMaps, createLocationPreview, destroyLocationPreview, createPickerMap, destroyPickerMap} from './map.js?v=2.4.2';
+import {initMap, setMapItems, focusMapItem, resizeMap, setRegionData, setSelectedRegion, refreshEmbeddedMaps, destroyEmbeddedMaps, createLocationPreview, destroyLocationPreview, createPickerMap, destroyPickerMap, resetMainMap} from './map.js?v=2.4.3';
 import {loadBundledRegions,setRegions,regionNames,pointInRegion,matchingRegion} from './regions.js';
 import {THEMES, themeSelection, activePalette, applyTheme, choosePreset, chooseCustom, restoreDefault} from './theme.js';
 import {initializeAuth, refreshIdentity, createAccount, loginAccount, logoutAccount, requestPasswordReset, changePassword, requestEmailVerification} from './auth.js';
@@ -10,7 +10,7 @@ import {SUPABASE_URL} from './supabase-config.js';
 import {loadNotificationsV13,socialAction,loadCommunity,createPost,editEditorialNews,updateProfileServer,createCommentServer,deleteCommentServer,followServer,voteServer,moderatePostServer,resolvePostServer,uploadDataImage,removeImageServer} from './remote.js?v=2.4.1';
 
 import {selectTrends, avatarInitial} from './community-v12.js';
-import {parseRoute, postPath, profilePath, sections, viewPaths, authPaths} from './router-v21.js';
+import {parseRoute, postPath, profilePath, sections, viewPaths, authPaths} from './router-v21.js?v=2.4.3';
 import {createAds} from './commerce-v222.js?rev=2';
 import {keepCurrentViewOnIdentity} from './session-view-v222.js';
 import {submitVisitorPost,reportSnapshot,zones,zoneSet,reportAction,trackedType,similarReports,reportProgress,labels as reportLabels} from './community-v23.js';
@@ -19,6 +19,7 @@ import {installColorPicker,selectFollowing} from './community-v13.js';
 import {createForum} from './forum-v20.js?v=2.4.2';
 import {installSelects,refreshSelects} from './selectors-v20.js';
 import {setupDaily,mazatlanDay} from './daily-bar.js?v=2.4.1';
+import {officialToday,newApprovedIds,installPhotoViewer} from './experience-v243.js?v=2.4.3';
 let feedMode='explorar',guestMode=false,replyId=null,socialState={saved:[],notifications:[],flags:[],commentVotes:[]};
 let routeReady=false,routeLock=false,pendingRoute=null,sessionChecked=false,returnAfterLogin=null;
 const recoveryAtBoot=new URLSearchParams(location.hash.slice(1)).get('type')==='recovery'||new URLSearchParams(location.search).get('type')==='recovery';let recoveryCompleted=false;
@@ -28,6 +29,8 @@ let items = []; // Solo publicaciones de Supabase
 let communityReady=false;
 let communityError='';
 let loadingCommunity=false;
+let newPostItems=[],checkingNewPosts=false,activeMapTransition=null;
+const mobileViewport=matchMedia('(max-width:820px)');
 let role = 'visitante';
 let currentIdentity = null;
 let localProfile = {username:'',bio:'',avatar:null,cover:null};
@@ -65,7 +68,7 @@ async function refreshCommunity({quiet=false}={}){
   if(currentPersonId()!==requestedUserId||guestMode!==requestedGuest)return;
   setSocialSnapshot(snapshot);socialState=snapshot;reportRecords=records;zoneAlerts=alertZones||[];zoneReady=alertZones!==null;
   $('#notification-count').textContent=snapshot.notifications.filter(n=>!n.read_at).length||'';
-  items=snapshot.items;
+  items=snapshot.items;newPostItems=[];
   const me=snapshot.people.find(p=>p.id===currentPersonId());
   if(me){localProfile={username:me.username,bio:me.bio||'',avatar:me.avatar||null,cover:me.cover||null};
    currentIdentity.profile={...currentIdentity.profile,display_name:me.name};}
@@ -74,7 +77,7 @@ async function refreshCommunity({quiet=false}={}){
   if(pendingRoute){const r=pendingRoute;pendingRoute=null;resolveRouteContent(r);if(r.view==='publicacion'){const target=items.find(p=>p.id===r.id);if(target)writeRoute(postPath(target),true);}}
   rememberCurrentPerson();
   $('#sidebar-avatar').innerHTML=localProfile.avatar?`<img src="${esc(localProfile.avatar)}" alt="">`:'◎';
-  render();
+  render();return true;
  }catch(error){if(currentPersonId()!==requestedUserId||guestMode!==requestedGuest)return;communityReady=false;communityError=error.message||'No fue posible cargar la comunidad.';
   if(!quiet)showToast('No se cargaron los datos. Revisa la migración v1.3 y la conexión a Supabase.');
   render();
@@ -187,13 +190,13 @@ function regionMatches(item){
   const normalize=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es').trim();
   return normalize(item.location)===normalize(advanced.region);
 }
-function visibleForDay(){
+function visibleForDay(sourceItems=items){
   const q=search.toLocaleLowerCase('es').trim();
-  const source=feedMode==='siguiendo'&&currentPersonId()?selectFollowing(items,[...new Set(items.map(authorIdFor))].filter(id=>isFollowing(currentPersonId(),id)),authorIdFor):items;
+  const source=feedMode==='siguiendo'&&currentPersonId()?selectFollowing(sourceItems,[...new Set(sourceItems.map(authorIdFor))].filter(id=>isFollowing(currentPersonId(),id)),authorIdFor):sourceItems;
   const list=source.filter(i=>i.review==='approved'&&sectionFor(i)===wallSection&&topicMatch(i)&&dateMatches(i)&&regionMatches(i)
     &&(!advanced.located||Boolean(i.coordinates)))
     .filter(i=>!q||[i.title,i.description,i.category,i.location].some(v=>String(v||'').toLocaleLowerCase('es').includes(q)));
-  const selected=items.find(i=>i.id===selectedId&&i.review==='approved'&&sectionFor(i)===wallSection);if(selected&&!list.some(i=>i.id===selected.id))list.push(selected);
+  const selected=sourceItems.find(i=>i.id===selectedId&&i.review==='approved'&&sectionFor(i)===wallSection);if(selected&&!list.some(i=>i.id===selected.id))list.push(selected);
   return list.sort((a,b)=>{
     if(advanced.sort==='votes')return voteCount(b)-voteCount(a) || String(b.createdAt).localeCompare(String(a.createdAt));
     const order=String(b.createdAt||b.day+'T'+b.clock).localeCompare(String(a.createdAt||a.day+'T'+a.clock));
@@ -282,7 +285,7 @@ function voteCount(item) {
 }
 function renderTrends(){
   // Ventana móvil de 168 horas desde la creación, independiente de los filtros del muro.
-  const candidates=selectTrends(items.filter(i=>sectionFor(i)===wallSection),voteCount);
+  const candidates=selectTrends(view==='tendencias'?items:items.filter(i=>sectionFor(i)===wallSection),voteCount);
   $('#trends-list').innerHTML=candidates.length ? candidates.map((item,index)=>`
     <button type="button" class="trend-item" data-trend-open="${esc(item.id)}" aria-label="Abrir publicación: ${esc(item.title)}">
       <span class="trend-rank">${index+1}</span>
@@ -440,7 +443,7 @@ function card(item){
   const voted=helpfulVotes.has(item.id);
   const image=imageURL(item.image)?`<img class="post-image" src="${esc(imageURL(item.image))}" alt="Imagen del reporte ciudadano" loading="lazy">`:'';
   const socialAuthor=personFor(authorIdFor(item))||{id:authorIdFor(item),name:author,username:'comunidad_mzt'};
-  return `<article class="event-card ${selectedId===item.id?'selected':''}" data-post-id="${esc(item.id)}">
+  return `<article class="event-card ${selectedId===item.id?'selected':''}${view==='explorar'&&officialToday(item,mazatlanDay())?' v243-official-today':''}" data-post-id="${esc(item.id)}">
     <div class="post-byline">${reportAuthor(item,{...socialAuthor,name:isOwn?author:socialAuthor.name},true)}<span class="post-age">${esc(item.clock||'')}</span></div>
     <a class="post-open" href="${esc(postPath(item))}" data-open="${esc(item.id)}" aria-label="Ver publicación: ${esc(item.title)}">
       <div class="post-tags"><span class="type-tag ${typeClass}${item.resolvedAt?' resolved':''}"><span class="type-symbol symbol-${typeClass}"></span>${esc(typeLabel(item))}</span>${item.category?`<span class="post-topic">${esc(item.category)}</span>`:''}</div>
@@ -464,7 +467,7 @@ function empty(title,desc,buttonText='',action=''){
   return `<div class="empty-state"><span class="empty-icon">⌖</span><strong>${esc(title)}</strong><p>${esc(desc)}</p>${buttonText?`<button type="button" data-action="${esc(action)}">${esc(buttonText)}</button>`:''}</div>`;
 }
 function canOpenView(next){
-  return ['explorar','publicacion','foro','about','advertise'].includes(next) || (['mi-cuenta','configuracion','personas','guardados','notificaciones','connections','business','ad-admin'].includes(next) && role!=='visitante') || (next==='moderacion' && ['lector','editor'].includes(role)) || (next==='denuncias'&&role==='editor');
+  return (next==='tendencias'&&mobileViewport.matches)||['explorar','publicacion','foro','about','advertise'].includes(next) || (['mi-cuenta','configuracion','personas','guardados','notificaciones','connections','business','ad-admin'].includes(next) && role!=='visitante') || (next==='moderacion' && ['lector','editor'].includes(role)) || (next==='denuncias'&&role==='editor');
 }
 function updateNavigation(){
   document.querySelectorAll('.side-link[data-view]').forEach(button=>{
@@ -484,7 +487,7 @@ function setView(next){
   view=next; selectedId=null;
   if(next==='mi-cuenta')profileId=currentPersonId();
   document.querySelectorAll('.side-link[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===next));
-  if(['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias','foro','about','connections','business','ad-admin','advertise'].includes(next)) { render(); if(['guardados','notificaciones','denuncias'].includes(next))void refreshCommunity({quiet:true}); return; }
+  if(['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias','foro','about','connections','business','ad-admin','advertise','tendencias'].includes(next)) { render(); if(['guardados','notificaciones','denuncias'].includes(next))void refreshCommunity({quiet:true}); return; }
   const headings={explorar:['PUBLICACIONES DE LA COMUNIDAD','El muro de Mazatlán'], moderacion:role==='lector'?['PANEL DE REVISIÓN','Reportes por revisar']:['PANEL EDITORIAL','Revisión pendiente']};
   $('.mini-eyebrow').textContent=headings[next][0];
   $('#feed-title').textContent=headings[next][1];
@@ -500,10 +503,11 @@ function setView(next){
 function render() {
   updateComposerAvatar();
   if(!canOpenView(view)) view='explorar';
+  arrangeMobileTrends();paintNewPosts();
   syncRoute();
   updateNavigation();
   document.querySelectorAll('.side-link[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
-  const alternate=['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias','foro','about','connections','business','ad-admin','advertise'].includes(view);
+  const alternate=['mi-cuenta','configuracion','personas','publicacion','guardados','notificaciones','denuncias','foro','about','connections','business','ad-admin','advertise','tendencias'].includes(view);
   $('#v13-panel').hidden=!['guardados','notificaciones','denuncias'].includes(view);
   const commercial=['business','ad-admin','advertise'].includes(view);$('#commerce-panel').hidden=!commercial;if(view!=='explorar')$('#mobile-map-return').hidden=true;if(!commercial)ads?.leave();
   $('#sign-out span:last-child').textContent=guestMode?'Iniciar sesión':'Cerrar sesión';
@@ -525,6 +529,7 @@ function render() {
     if(!ads){panel.textContent='No se pudo abrir el panel comercial. Actualiza la página.';return;}
     void ads.show(view).catch(error=>{if(['business','ad-admin','advertise'].includes(view))panel.textContent=error?.message||'No se pudo abrir el panel comercial.';});return;
   }
+  if(view==='tendencias'){updateStats();renderTrends();return;}
   if(view==='foro'){forum?.show();return;}
   if(view==='about'){renderAbout();return;}
   if(view==='connections'){if(pendingRoute?.username){$('#connections-panel').innerHTML='<p role="status">Cargando perfil…</p>';return;}renderConnections();return;}
@@ -1151,7 +1156,7 @@ function onIdentityChange(state){
  const r=parseRoute(location.pathname,location.search);
  if(state.status==='signed_in'){
    guestMode=false;currentIdentity=state;role=state.role;void ads?.sync();
-   if(old!==state.user.id||!wasChecked){forum?.reset();localProfile=loadLocalProfile(state.user.id);clearSocialSnapshot();communityReady=false;communityError='';items=[];rememberCurrentPerson();}
+   if(old!==state.user.id||!wasChecked){forum?.reset();localProfile=loadLocalProfile(state.user.id);clearSocialSnapshot();communityReady=false;communityError='';items=[];newPostItems=[];rememberCurrentPerson();}
    $('#auth-configuration').hidden=true;
    if(!recoveryCompleted&&(state.recovery||recoveryAtBoot)){showAuth('recover',true);return;}
    if(r.auth==='recover'&&!recoveryCompleted){showAuth('recover',true);return;}
@@ -1220,6 +1225,8 @@ void loadBundledRegions().then(count=>{geoRegionsAvailable=count>0;setRegionData
 installV20();
 ads=createAds({user:currentPersonId,view:()=>view,nav:updateNavigation,toast:showToast,compress:compressedPhoto,login:notSignedIn,navigate:next=>{if(next==='business'&&!currentPersonId()){returnAfterLogin='/mi-negocio';return showAuth('login');}setView(next);scrollTopPage();}});
 installMobileMap();
+installPhotoViewer($('#v243-photo'),mobileViewport);
+installNewPostNotice();
 installRouter();
 void initializeAuth(onIdentityChange);
 
@@ -1315,8 +1322,14 @@ function installV20(){
 
 /* v2.1: navegación por historial y transiciones sin recrear el mapa. */
 function animateMapMove(move,animated){
- // Mover el contenedor sin transformarlo: el motor conserva la proyección de las coordenadas.
- move();$('#wall-companion').classList.remove('map-animating');resizeMap();requestAnimationFrame(resizeMap);
+ const panel=$('#map-panel'),rail=$('#wall-companion');
+ const from=panel.getBoundingClientRect();activeMapTransition?.cancel();activeMapTransition=null;
+ move();resizeMap();const to=panel.getBoundingClientRect();
+ if(!animated||matchMedia('(prefers-reduced-motion: reduce)').matches||!panel.animate||!from.width||!to.width||!from.height||!to.height){rail.classList.remove('map-animating');requestAnimationFrame(resizeMap);return;}
+ rail.classList.add('map-animating');
+ const animation=panel.animate([{transformOrigin:'top left',transform:'translate('+(from.left-to.left)+'px,'+(from.top-to.top)+'px) scale('+(from.width/to.width)+','+(from.height/to.height)+')'},{transformOrigin:'top left',transform:'none'}],{duration:340,easing:'cubic-bezier(.22,.72,.25,1)'});
+ activeMapTransition=animation;const finish=()=>{if(activeMapTransition===animation){activeMapTransition=null;rail.classList.remove('map-animating');resizeMap();}};
+ animation.onfinish=finish;animation.oncancel=finish;
 }
 
 function writeRoute(path,replace=false){
@@ -1349,6 +1362,7 @@ function applyLocation(){
  if(!sessionChecked)return;
  const r=parseRoute(location.pathname,location.search);
  if(r.auth){showAuth(r.auth,true);return;}
+ if(r.view==='tendencias'&&!mobileViewport.matches){writeRoute('/',true);return applyLocation();}
  if(!canOpenView(r.view)){if(!currentPersonId()){returnAfterLogin=location.pathname+location.search;showAuth('login',true);return;}showToast('No tienes permiso para abrir este apartado.');writeRoute('/',true);return applyLocation();}
  $('#auth-gate').hidden=true;$('.app-shell').hidden=false;$('#boot-status').hidden=true;
  routeLock=true;pendingRoute=null;
@@ -1385,20 +1399,13 @@ function installRouter(){
 }
 
 function clearMobileDock(){
- const home=$('#map-home'),panel=$('#map-panel');if(!home.classList.contains('mobile-docked')){$('#mobile-map-return').hidden=true;return;}
- home.classList.remove('mobile-docked');panel.classList.remove('is-mobile-docked');home.style.removeProperty('--mzt-mobile-space');home.style.removeProperty('--mzt-mobile-margin');panel.style.removeProperty('--mzt-mobile-top');panel.style.removeProperty('--mzt-mobile-left');panel.style.removeProperty('--mzt-mobile-width');$('#mobile-map-return').hidden=true;requestAnimationFrame(resizeMap);
+ const home=$('#map-home'),panel=$('#map-panel');
+ home.classList.remove('mobile-docked');panel.classList.remove('is-mobile-docked');
+ $('#mobile-map-return').hidden=true;
 }
 function updateMobileMapButton(){
- const button=$('#mobile-map-return'),home=$('#map-home'),panel=$('#map-panel');
- if(!matchMedia('(max-width:820px)').matches||view!=='explorar'||!$('#auth-gate').hidden||home.hidden){clearMobileDock();return;}
- if(mapIsExpanded){button.hidden=true;return;}
- const header=$('.v20-top').getBoundingClientRect().bottom,rect=home.getBoundingClientRect();
- if(rect.bottom>header+6){clearMobileDock();return;}
- if(!home.classList.contains('mobile-docked')){
-  home.style.setProperty('--mzt-mobile-space',rect.height+'px');home.style.setProperty('--mzt-mobile-margin',getComputedStyle(panel).marginBottom);
-  home.classList.add('mobile-docked');panel.classList.add('is-mobile-docked');requestAnimationFrame(resizeMap);
- }
- panel.style.setProperty('--mzt-mobile-top',Math.max(0,header)+'px');panel.style.setProperty('--mzt-mobile-left',rect.left+'px');panel.style.setProperty('--mzt-mobile-width',rect.width+'px');button.hidden=false;
+ const button=$('#mobile-map-return'),home=$('#map-home');
+ button.hidden=!matchMedia('(max-width:820px)').matches||view!=='explorar'||!$('#auth-gate').hidden||home.hidden||mapIsExpanded||home.getBoundingClientRect().bottom>$('.v20-top').getBoundingClientRect().bottom+6;
 }
 function installMobileMap(){
  $('#mobile-map-return').addEventListener('click',()=>{
@@ -1407,7 +1414,46 @@ function installMobileMap(){
    const behavior=matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth';
    window.scrollTo({top:Math.max(0,window.scrollY+map.getBoundingClientRect().top-header-12),behavior});
  });
- matchMedia('(max-width:820px)').addEventListener('change',scheduleDock);
+ mobileViewport.addEventListener('change',()=>{if(!mobileViewport.matches&&view==='tendencias')goHome();else render();scheduleDock();});
+ for(const id of ['center-main-map','center-expanded-map'])$('#'+id).addEventListener('click',resetMainMap);
   window.visualViewport?.addEventListener('resize',scheduleDock);
   window.visualViewport?.addEventListener('scroll',scheduleDock);
+}
+
+function arrangeMobileTrends(){
+ const panel=$('#mobile-trends-panel'),rail=$('#wall-panels'),trends=$('.trends-card'),stats=$('#stats-strip'),ad=$('#ad-sidebar');
+ if(mobileViewport.matches){
+  if(trends.parentNode!==panel)panel.append(trends,stats);
+  $('.trends-intro').textContent='Las publicaciones más votadas de la comunidad durante los últimos 7 días.';
+ }else{
+  if(trends.parentNode!==rail){rail.insertBefore(trends,ad);rail.insertBefore(stats,ad.nextSibling);}
+  $('.trends-intro').textContent='Las publicaciones más votadas de esta sección durante los últimos 7 días.';
+ }
+ panel.hidden=view!=='tendencias'||!mobileViewport.matches;
+}
+function pendingVisiblePosts(){
+ const known=new Set(items.filter(p=>p.review==='approved').map(p=>p.id));
+ return visibleForDay(newPostItems).filter(p=>!known.has(p.id));
+}
+function paintNewPosts(){
+ const button=$('#v243-new-posts'),count=communityReady&&view==='explorar'&&$('#auth-gate').hidden?pendingVisiblePosts().length:0;
+ button.hidden=!count;button.textContent=count?'↑ '+count+(count===1?' publicación nueva':' publicaciones nuevas'):'';
+}
+async function checkNewPosts(){
+ if(checkingNewPosts||loadingCommunity||!communityReady||document.hidden||view!=='explorar'||!$('#auth-gate').hidden)return;
+ const id=currentPersonId(),guest=guestMode;checkingNewPosts=true;
+ try{
+  const snapshot=await loadCommunity(guest);
+  if(id!==currentPersonId()||guest!==guestMode||!communityReady||loadingCommunity)return;
+  const fresh=new Set(newApprovedIds(items,snapshot.items));
+  newPostItems=snapshot.items.filter(p=>fresh.has(p.id));paintNewPosts();
+ }catch{}finally{checkingNewPosts=false;}
+}
+function installNewPostNotice(){
+ $('#v243-new-posts').addEventListener('click',async()=>{
+  const b=$('#v243-new-posts'),first=pendingVisiblePosts()[0];if(!first||b.disabled)return;
+  b.disabled=true;try{if(await refreshCommunity({quiet:true})){const post=items.find(p=>p.id===first.id);if(post&&view==='explorar'){selectedId=post.id;render();requestAnimationFrame(()=>[...document.querySelectorAll('#feed-content [data-post-id]')].find(n=>n.dataset.postId===post.id)?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'}));}}}finally{b.disabled=false;paintNewPosts();}
+ });
+ setInterval(()=>{void checkNewPosts();const day=mazatlanDay();for(const card of document.querySelectorAll('#feed-content .event-card[data-post-id]')){const p=items.find(i=>i.id===card.dataset.postId);card.classList.toggle('v243-official-today',officialToday(p,day));}},45000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)void checkNewPosts();});
 }

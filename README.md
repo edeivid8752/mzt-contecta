@@ -39,6 +39,13 @@ Los usuarios nuevos reciben inicialmente el rol **Ciudadano**. Los permisos de m
 
 ## Historial de actualizaciones
 
+### v2.4.3 — Navegación móvil y experiencia del muro
+- Transición animada entre mapa principal y minimapa de escritorio, con vistas previas a 500 ms.
+- Recuperación del botón flotante para regresar al mapa en móviles y traslado de Tendencias y Actividad del día a una sección independiente, con acceso directo a las publicaciones.
+- Aviso discreto de nuevas publicaciones sin desplazar ni reconstruir automáticamente el muro durante la lectura.
+- Visor de fotografías a pantalla completa con zoom táctil y control de centrado del mapa en móviles.
+- Noticias editoriales vigentes destacadas en el muro con un fondo sutil del tema elegido, sin alterar la barra Al día ni los anuncios patrocinados.
+
 ### v2.4.2 — Exploración y categorías
 - Etiquetas de categorías con colores distintivos en las conversaciones del foro.
 - Encabezado del muro alineado con el mapa principal y la barra Al día, sin modificar el ancho de las publicaciones.

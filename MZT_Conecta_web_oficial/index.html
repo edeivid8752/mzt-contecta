@@ -19,7 +19,8 @@
   <link rel="stylesheet" href="./src/v22.css?v=2.2.2-r2">
   <link rel="stylesheet" href="./src/v23.css?v=2.3-r2">
   <link rel="stylesheet" href="./src/v24.css?v=2.4.2">
-  <script type="module" src="./src/main.js?v=2.4.2"></script>
+  <link rel="stylesheet" href="./src/v243.css?v=2.4.3">
+  <script type="module" src="./src/main.js?v=2.4.3"></script>
 </head>
 <body>
   <section id="auth-gate" class="auth-gate" hidden aria-labelledby="auth-title">
@@ -104,10 +105,10 @@
     </aside>
 
     <main class="main-area">
-      <header class="v20-top"><button class="v20-brand" data-top-view="explorar" type="button">MZT Conecta</button><nav class="v20-tabs" aria-label="Navegación principal"><button type="button" data-top-view="explorar" aria-current="page">Muro</button><button type="button" data-top-view="foro">Foro</button><button type="button" data-top-view="about">¿Quiénes somos?</button></nav></header>
+      <header class="v20-top"><button class="v20-brand" data-top-view="explorar" type="button">MZT Conecta</button><nav class="v20-tabs" aria-label="Navegación principal"><button type="button" data-top-view="explorar" aria-current="page">Muro</button><button type="button" data-top-view="foro">Foro</button><button class="v243-mobile-tab" type="button" data-top-view="tendencias">Tendencias</button><button type="button" data-top-view="about">¿Quiénes somos?</button></nav></header>
       <div class="main-body"><section id="v13-panel" hidden></section><section id="commerce-panel" class="v20-panel" aria-label="Gestión comercial" hidden><p role="status">Cargando información comercial…</p></section>
       <div id="daily-bar" class="daily-bar"><strong class="daily-label">Al día</strong><div class="daily-headlines"><button id="daily-story" type="button"></button><span id="daily-controls"><button id="daily-prev" type="button" aria-label="Anterior">‹</button><button id="daily-pause" type="button" aria-label="Pausar">Ⅱ</button><button id="daily-next" type="button" aria-label="Siguiente">›</button></span></div><div class="weather" title="Clima en Mazatlán"><span id="weather-icon"></span><strong id="weather-reading">—</strong><span id="weather-condition">Mazatlán</span></div></div>
-      <section id="forum-panel" class="v20-panel" hidden></section><section id="about-panel" class="v20-panel" hidden></section><section id="connections-panel" class="v20-panel" hidden></section>
+      <section id="mobile-trends-panel" class="v20-panel" aria-label="Tendencias y actividad" hidden></section><section id="forum-panel" class="v20-panel" hidden></section><section id="about-panel" class="v20-panel" hidden></section><section id="connections-panel" class="v20-panel" hidden></section>
         <div class="page-heading">
           <div>
             <p class="eyebrow"><span class="eyebrow-line"></span> EL MURO DE NUESTRA CIUDAD</p>
@@ -118,7 +119,8 @@
 
         <!-- El mapa es una vista principal en la cabecera del muro. -->
         <div id="map-home"><section class="map-panel map-hero" id="map-panel" aria-label="Mapa interactivo de Mazatlán">
-          <div id="map" class="map-canvas"></div><button type="button" id="mobile-map-return" hidden aria-label="Volver al mapa grande">↑ Mapa grande</button>
+          <div id="map" class="map-canvas"></div>
+          <button id="center-main-map" class="v243-map-center" type="button" aria-label="Centrar mapa" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg><span hidden>Centrar</span></button>
           <button id="expand-main-map" type="button" class="map-expand-button" title="Ampliar el mapa" aria-label="Ampliar mapa de Mazatlán">⛶ <span>Ampliar</span></button>
           <div class="map-fallback" id="map-fallback" hidden><span>⌖</span><strong>El mapa requiere conexión a Internet</strong><small>El muro de publicaciones sigue disponible.</small><button class="soft-btn" type="button" id="map-retry-init">Reintentar mapa</button></div>
         </section></div>
@@ -242,11 +244,14 @@
   <div id="expanded-map-overlay" class="expanded-map-overlay" hidden>
     <section class="expanded-map-dialog" role="dialog" aria-modal="true" aria-labelledby="expanded-map-title">
       <header><div><span>EXPLORAR MAZATLÁN</span><h2 id="expanded-map-title">Mapa de la comunidad</h2><p>Los filtros del muro también se aplican aquí.</p></div><button type="button" id="expanded-map-close" aria-label="Cerrar mapa ampliado">×</button></header>
-      <div id="expanded-map-host" class="expanded-map-host"></div>
+      <div id="expanded-map-host" class="expanded-map-host"><button id="center-expanded-map" class="v243-map-center" type="button" aria-label="Centrar mapa" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg><span hidden>Centrar</span></button></div>
       <footer><span id="expanded-map-count">Mostrando publicaciones con ubicación</span><button type="button" id="expanded-map-back">Volver al muro</button></footer>
     </section>
   </div>
   
+  <button type="button" id="mobile-map-return" hidden aria-label="Volver al mapa">↑ Volver al mapa</button>
+  <button type="button" id="v243-new-posts" class="v243-new-posts" hidden aria-live="polite"></button>
+  <dialog id="v243-photo" class="v243-photo" aria-label="Fotografía de publicación"><button type="button" data-photo-close aria-label="Cerrar fotografía">×</button><div class="v243-photo-stage"><img alt="Fotografía de publicación" draggable="false"></div></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

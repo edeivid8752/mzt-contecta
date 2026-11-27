@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {officialToday,newApprovedIds} from '../src/experience-v243.js';
+import {parseRoute} from '../src/router-v21.js';
+import {readFileSync} from 'node:fs';
+const p={id:'a',review:'approved',type:'news',dailyDay:'2026-11-27',dailyUntil:'2026-11-29'};
+assert(officialToday(p,'2026-11-29'));assert(!officialToday(p,'2026-11-30'));assert(!officialToday({...p,type:'social'},'2026-11-27'));assert(!officialToday({...p,review:'pending'},'2026-11-27'));
+assert.deepEqual(newApprovedIds([p,{id:'b',review:'pending'}],[p,{id:'b',review:'approved'},{id:'c',review:'pending'},{id:'d',review:'approved'}]),['b','d']);
+assert.equal(parseRoute('/tendencias').view,'tendencias');assert.equal(parseRoute('/foro/otros').topic,'Otros');
+const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');for(const id of ['mobile-trends-panel','v243-photo','v243-new-posts','center-main-map','center-expanded-map'])assert(html.includes('id="'+id+'"'));
+console.log('v2.4.3: vigencias, detección de novedades, rutas y controles correctos');

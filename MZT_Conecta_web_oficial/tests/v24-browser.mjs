@@ -131,12 +131,12 @@ try{
  async function hoverPin(enter=true){
   await page.evaluate(enter=>{const pin=document.querySelector('#map .wall-pin');pin.dispatchEvent(new PointerEvent(enter?'pointerover':'pointerout',{bubbles:true,pointerType:'mouse'}));},enter);
  }
- await hoverPin();await page.waitForTimeout(400);assert.equal(await page.locator('.v242-map-preview').count(),0);await hoverPin(false);await page.waitForTimeout(700);assert.equal(await page.locator('.v242-map-preview').count(),0);
- await hoverPin();await page.waitForSelector('.v242-map-preview',{timeout:2000});await hoverPin(false);assert.equal(await page.locator('.v242-map-preview').count(),0);
+ await hoverPin();await page.waitForTimeout(200);assert.equal(await page.locator('.v242-map-preview').count(),0);await hoverPin(false);await page.waitForTimeout(700);assert.equal(await page.locator('.v242-map-preview').count(),0);
+ await hoverPin();await page.waitForSelector('.v242-map-preview',{timeout:1200});await hoverPin(false);assert.equal(await page.locator('.v242-map-preview').count(),0);
  await page.evaluate(()=>{const dock=document.createElement('div');dock.id='map-dock';document.querySelector('.fixture').append(dock);dock.append(document.querySelector('#map-panel'));window.mzt.resizeMap();});
  await hoverPin();await page.waitForTimeout(1100);assert.equal(await page.locator('.v242-map-preview').count(),0);await hoverPin(false);
  await page.evaluate(()=>{const host=document.createElement('div');host.id='expanded-map-host';host.style.cssText='position:relative;height:420px;width:100%';document.querySelector('.fixture').append(host);host.append(document.querySelector('#map'));window.mzt.resizeMap();});
- await page.waitForTimeout(300);await hoverPin();await page.waitForSelector('.v242-map-preview',{timeout:2000});await hoverPin(false);
+ await page.waitForTimeout(300);await hoverPin();await page.waitForSelector('.v242-map-preview',{timeout:1200});await hoverPin(false);
  await page.evaluate(()=>{const panel=document.querySelector('#map-panel');panel.prepend(document.querySelector('#map'));document.querySelector('#map-home').append(panel);document.querySelector('#expanded-map-host').remove();document.querySelector('#map-dock').remove();window.mzt.resizeMap();});
  await page.setViewportSize({width:390,height:844});
  await hoverPin();await page.waitForTimeout(1100);assert.equal(await page.locator('.v242-map-preview').count(),0);await hoverPin(false);
@@ -145,22 +145,20 @@ try{
  const mobileBefore=await page.locator('.feed-panel').evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,width:r.width,y:r.top+window.scrollY};});
  await page.evaluate(()=>{window.scrollTo({top:800,behavior:'instant'});window.dock.update();});
  await page.waitForTimeout(350);
- const first=await page.locator('#map-panel').boundingBox(),header=await page.locator('.v20-top').boundingBox();
- assert(first.height<=130&&first.height>=90&&Math.abs(first.y-Math.max(0,header.y+header.height))<2,'Minimapa fuera de cabecera '+JSON.stringify({first,header}));
+ assert(await page.locator('#map-panel').evaluate(el=>!el.classList.contains('is-mobile-docked')&&el.clientHeight>200),'El mapa móvil no debe quedar fijo');
+ assert(!(await page.locator('#mobile-map-return').evaluate(el=>el.hidden)),'No aparece la flecha al salir del mapa');
  const mobileAfter=await page.locator('.feed-panel').evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,width:r.width,y:r.top+window.scrollY};});
- assert(Math.abs(mobileBefore.x-mobileAfter.x)<1&&Math.abs(mobileBefore.width-mobileAfter.width)<1&&Math.abs(mobileBefore.y-mobileAfter.y)<2,'El acoplamiento desplazó el muro '+JSON.stringify({mobileBefore,mobileAfter}));
- await page.evaluate(()=>{window.scrollTo({top:1100,behavior:'instant'});window.dock.update();});
- await page.waitForTimeout(300);
- const second=await page.locator('#map-panel').boundingBox();
- const secondHeader=await page.locator('.v20-top').boundingBox();
- assert(second.y>=0&&second.height<=130&&Math.abs(second.y-Math.max(0,secondHeader.y+secondHeader.height))<2&&Math.abs(first.y-second.y)<2,'El mapa no acompaña el desplazamiento '+JSON.stringify({first,second,header,secondHeader}));
- await anchors();
+ assert(Math.abs(mobileBefore.x-mobileAfter.x)<1&&Math.abs(mobileBefore.width-mobileAfter.width)<1&&Math.abs(mobileBefore.y-mobileAfter.y)<2,'El mapa desplazó el muro');
  await page.evaluate(()=>{window.scrollTo({top:0,behavior:'instant'});window.dock.update();});
  await page.waitForTimeout(300);
- assert(await page.locator('#map-panel').evaluate(el=>!el.classList.contains('is-mobile-docked')&&el.clientHeight>200),'No regresó el mapa grande');
+ assert(await page.locator('#mobile-map-return').evaluate(el=>el.hidden),'Flecha visible con mapa principal');
  await page.evaluate(()=>{window.scrollTo({top:850,behavior:'instant'});window.dock.update();window.dock.setView('foro');});
- assert(await page.locator('#map-panel').evaluate(el=>!el.classList.contains('is-mobile-docked')),'Mapa flotante fuera del muro');
- console.log('v2.4.1: alineación de escritorio, mapa fijo móvil, vuelta al mapa grande y posición del muro comprobados');
+ assert(await page.locator('#mobile-map-return').evaluate(el=>el.hidden),'Flecha fuera del muro');
+ await page.evaluate(()=>window.mzt.resetMainMap());
+ await page.waitForTimeout(500);
+ const reset=await page.evaluate(()=>window.mzt.getMainMapView());
+ assert(Math.abs(reset.center[0]+106.429)<.001&&Math.abs(reset.center[1]-23.241)<.001&&Math.abs(reset.zoom-12)<.26,'Centrado incorrecto '+JSON.stringify(reset));
+ console.log('v2.4.3: alineación, hover, mapa móvil sin acoplar, flecha y centrado comprobados');
  assert.deepEqual(errors,[]);
  console.log('Chromium: anclajes de todas las categorías, traslado, mapa de publicación, selector, recuperación y ancho del feed correctos');
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}

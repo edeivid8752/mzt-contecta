@@ -40,7 +40,7 @@ export function installMarkerPreviews(el,map,getItem){
   if(e.pointerType!=='mouse')return;
   const pin=e.target.closest?.('.wall-pin[data-preview-post]');
   if(!pin||!el.contains(pin)||(e.relatedTarget instanceof Node&&pin.contains(e.relatedTarget))||pin===target)return;
-  clear();if(!allowed())return;target=pin;timer=setTimeout(show,1000);
+  clear();if(!allowed())return;target=pin;timer=setTimeout(show,500);
  }
  function out(e){if(target&&target.contains(e.target)&&!(e.relatedTarget instanceof Node&&target.contains(e.relatedTarget)))clear();}
  function refresh(){if(target&&(!allowed()||!target.isConnected||!getItem(target.dataset.previewPost)))clear();}

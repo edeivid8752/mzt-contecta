@@ -4,8 +4,8 @@ export const slug=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'
 const idFrom=s=>{const id=String(s||'').slice(-36);return uuid.test(id)?id.toLowerCase():null;};
 export const sections={social:'social',news:'noticias',infrastructure:'infraestructura'};
 export const authPaths={login:'/iniciar-sesion',register:'/registro',forgot:'/recuperar-contrasena',recover:'/restablecer-contrasena'};
-export const viewPaths={'mi-cuenta':'/cuenta',configuracion:'/configuracion',personas:'/personas',guardados:'/guardados',notificaciones:'/notificaciones',moderacion:'/moderacion',denuncias:'/denuncias',about:'/nosotros',business:'/mi-negocio','ad-admin':'/administracion/publicidad',advertise:'/publicidad'};
-export const forumCategories=['Infraestructura','Qué hacer','Ideas para Mazatlán','Playas','Comunidad','Movilidad'];
+export const viewPaths={'mi-cuenta':'/cuenta',configuracion:'/configuracion',personas:'/personas',guardados:'/guardados',notificaciones:'/notificaciones',moderacion:'/moderacion',denuncias:'/denuncias',about:'/nosotros',business:'/mi-negocio','ad-admin':'/administracion/publicidad',advertise:'/publicidad',tendencias:'/tendencias'};
+export const forumCategories=['Infraestructura','Qué hacer','Ideas para Mazatlán','Playas','Comunidad','Movilidad','Otros'];
 export function postPath(item){return '/publicacion/'+(slug(item.title)?slug(item.title)+'-':'')+item.id;}
 export function threadPath(t){return '/foro/conversacion/'+(slug(t.title)?slug(t.title)+'-':'')+t.id;}
 export function profilePath(p,mode){return '/perfil/'+encodeURIComponent(p.username)+(mode?'/'+(mode==='followers'?'seguidores':'seguidos'):'');}
