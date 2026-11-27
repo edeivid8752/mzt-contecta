@@ -36,6 +36,10 @@ RESET ROLE;
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM public.mzt_forum_replies WHERE thread_id='24500000-0000-4000-8000-000000000001') OR EXISTS(SELECT 1 FROM public.mzt_forum_votes WHERE thread_id='24500000-0000-4000-8000-000000000001') THEN RAISE EXCEPTION 'Cascada incorrecta'; END IF;
 END $$;
+-- Simular una verificación legítima en la base desechable antes de promover al segundo editor.
+INSERT INTO mzt_private.v24_email_verified(user_id,email,verified_at)
+SELECT id,lower(email),now() FROM auth.users WHERE id='00000000-0000-4000-8000-000000000002'
+ON CONFLICT (user_id) DO UPDATE SET email=EXCLUDED.email,verified_at=EXCLUDED.verified_at;
 UPDATE public.app_roles SET role='editor' WHERE user_id='00000000-0000-4000-8000-000000000002';
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',true);
